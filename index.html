@@ -3,122 +3,176 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control de Instalación de Tapas</title>
+  <title>Control de Instalación de Tapas - EP HUARAL</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-slate-100 min-h-screen p-4">
-  <div class="max-w-xl mx-auto bg-white rounded-xl shadow-md p-6">
+<body class="bg-slate-100 min-h-screen p-3 md:p-6">
+  <div class="max-w-xl mx-auto bg-white rounded-xl shadow-lg p-6">
     
     <!-- LOGIN -->
     <div id="sec-login">
-      <h2 class="text-xl font-bold text-slate-800 text-center mb-4">EP HUARAL — Control de Tapas</h2>
+      <div class="text-center mb-6">
+        <h1 class="text-2xl font-bold text-blue-900">EP HUARAL</h1>
+        <p class="text-sm text-gray-600 font-semibold">Control de Instalación de Tapas de Agua</p>
+      </div>
+
       <div class="space-y-4">
-        <input type="number" id="inputDni" placeholder="Ingrese su DNI" class="w-full border p-3 rounded-lg text-center text-lg focus:ring-2 focus:ring-blue-500">
-        <button onclick="login()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700">Ingresar</button>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">DNI del Responsable</label>
+          <input type="number" id="inputDni" placeholder="Ej: 72760364" class="w-full border p-3 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <button id="btnIngresar" onclick="login()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">
+          Ingresar al Sistema
+        </button>
       </div>
     </div>
 
     <!-- PANEL PRINCIPAL -->
-    <div id="sec-panel" class="hidden">
-      <div class="flex justify-between items-center mb-4 border-b pb-2">
+    <div id="sec-panel" class="hidden space-y-5">
+      <div class="flex justify-between items-center border-b pb-3">
         <div>
-          <p id="lblUsuario" class="font-bold text-slate-800"></p>
-          <span id="lblRol" class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full uppercase"></span>
+          <p id="lblUsuario" class="font-bold text-slate-800 text-base"></p>
+          <span id="lblRol" class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold uppercase"></span>
         </div>
-        <button onclick="location.reload()" class="text-xs text-red-500 font-semibold">Salir</button>
+        <button onclick="location.reload()" class="text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-1 rounded-md font-bold hover:bg-red-100">
+          Cerrar Sesión
+        </button>
       </div>
 
-      <!-- FORMULARIO SOLO ADMIN -->
-      <div id="formAdmin" class="hidden bg-slate-50 p-4 rounded-lg border mb-6 space-y-3">
-        <h3 class="font-bold text-slate-700">Nuevo Registro de Suministro</h3>
+      <!-- FORMULARIO SOLO PARA ADMINISTRADOR -->
+      <div id="formAdmin" class="hidden bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+        <h3 class="font-bold text-slate-800 text-sm border-b pb-1">Nuevo Registro de Suministro</h3>
         
         <div class="flex gap-2">
-          <input type="text" id="regCodSuministro" placeholder="Cód. Suministro" class="w-full border p-2 rounded">
-          <button onclick="buscarCod()" class="bg-gray-800 text-white px-3 py-2 rounded text-sm font-bold">Buscar</button>
+          <input type="text" id="regCodSuministro" placeholder="Cód. Suministro" class="w-full border p-2 rounded text-sm font-semibold">
+          <button id="btnBuscar" onclick="buscarCod()" class="bg-gray-800 text-white px-4 py-2 rounded text-sm font-bold hover:bg-gray-900">
+            Buscar
+          </button>
         </div>
 
-        <!-- Campos autocompletados -->
-        <input type="text" id="regNombre" placeholder="Nombre Usuario" class="w-full border p-2 rounded bg-gray-100" readonly>
-        <input type="text" id="regDomicilio" placeholder="Domicilio" class="w-full border p-2 rounded bg-gray-100" readonly>
+        <input type="text" id="regNombre" placeholder="Nombre Usuario" class="w-full border p-2 rounded text-sm bg-gray-100 font-medium" readonly>
+        <input type="text" id="regDomicilio" placeholder="Domicilio" class="w-full border p-2 rounded text-sm bg-gray-100 font-medium" readonly>
         
         <div class="grid grid-cols-3 gap-2">
-          <input type="text" id="regSector" placeholder="Sector" class="border p-2 rounded bg-gray-100" readonly>
-          <input type="text" id="regCategoria" placeholder="Categoría" class="border p-2 rounded bg-gray-100" readonly>
-          <input type="text" id="regMedidor" placeholder="Medidor" class="border p-2 rounded bg-gray-100" readonly>
+          <input type="text" id="regSector" placeholder="Sector" class="border p-2 rounded text-xs bg-gray-100 text-center" readonly>
+          <input type="text" id="regCategoria" placeholder="Categoría" class="border p-2 rounded text-xs bg-gray-100 text-center" readonly>
+          <input type="text" id="regMedidor" placeholder="Medidor" class="border p-2 rounded text-xs bg-gray-100 text-center" readonly>
         </div>
 
-        <select id="regResponsable" class="w-full border p-2 rounded font-semibold text-slate-700">
-          <option value="">-- Seleccionar Responsable --</option>
-        </select>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">Asignar a Personal:</label>
+          <select id="regResponsable" class="w-full border p-2 rounded text-sm font-semibold text-slate-700">
+            <option value="">-- Seleccionar Responsable --</option>
+          </select>
+        </div>
 
-        <input type="text" id="regMotivo" placeholder="Motivo de cambio" class="w-full border p-2 rounded">
+        <input type="text" id="regMotivo" placeholder="Motivo de cambio (Opcional)" class="w-full border p-2 rounded text-sm">
         
-        <button onclick="guardarRegistro()" class="w-full bg-green-600 text-white py-2 rounded font-bold">Guardar y Asignar</button>
+        <button id="btnGuardar" onclick="guardarRegistro()" class="w-full bg-green-600 text-white py-2 rounded font-bold text-sm hover:bg-green-700 transition">
+          Guardar y Asignar Trabajo
+        </button>
       </div>
 
-      <!-- LISTA DE REGISTROS -->
-      <h3 class="font-bold text-slate-800 mb-2">Instalaciones Asignadas</h3>
-      <div id="listaRegistros" class="space-y-3"></div>
+      <!-- LISTA DE ASIGNACIONES -->
+      <div>
+        <h3 class="font-bold text-slate-800 text-sm mb-3">Registros de Instalación</h3>
+        <div id="listaRegistros" class="space-y-3"></div>
+      </div>
     </div>
 
   </div>
 
   <script>
-    // REEMPLAZA ESTA URL CON LA DE TU APPS SCRIPT IMPLEMENTADO EN EL PASO 3
-    const API_URL = "URL_DE_TU_APPS_SCRIPT"const API_URL = "https://script.google.com/macros/s/AKfycbxNA-wPUmNt9v9_IyujkWrM1GD3OvslbM4QlGSuDH4e-WaSBc9af_liZIUAGCP0nJUG/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbxNA-wPUmNt9v9_IyujkWrM1GD3OvslbM4QlGSuDH4e-WaSBc9af_liZIUAGCP0nJUG/exec";
     
     let usuarioActual = { dni: '', nombre: '', rol: '' };
     let listaResponsables = [];
 
     async function login() {
-      const dni = document.getElementById('inputDni').value.trim();
-      if (!dni) return alert('Ingrese su DNI');
+      const dniInput = document.getElementById('inputDni');
+      const btn = document.getElementById('btnIngresar');
+      const dni = dniInput.value.trim();
+      
+      if (!dni) return alert('Por favor, ingrese su DNI');
 
-      const res = await fetch(`${API_URL}?dni=${dni}`).then(r => r.json());
-      if (!res.ok) return alert(res.mensaje);
+      btn.innerText = 'Cargando...';
+      btn.disabled = true;
 
-      usuarioActual = { dni, nombre: res.nombre, rol: res.rol };
-      listaResponsables = res.responsables || [];
+      try {
+        const res = await fetch(`${API_URL}?dni=${encodeURIComponent(dni)}`).then(r => r.json());
 
-      document.getElementById('sec-login').classList.add('hidden');
-      document.getElementById('sec-panel').classList.remove('hidden');
-      document.getElementById('lblUsuario').innerText = res.nombre;
-      document.getElementById('lblRol').innerText = res.rol;
+        if (!res.ok) {
+          alert(res.mensaje || 'DNI no autorizado.');
+          return;
+        }
 
-      if (res.rol === 'administrador') {
-        document.getElementById('formAdmin').classList.remove('hidden');
-        const select = document.getElementById('regResponsable');
-        select.innerHTML = '<option value="">-- Seleccionar Responsable --</option>';
-        listaResponsables.forEach(r => {
-          select.innerHTML += `<option value="${r.dni}">${r.nombre}</option>`;
-        });
+        usuarioActual = { dni, nombre: res.nombre, rol: res.rol };
+        listaResponsables = res.responsables || [];
+
+        document.getElementById('sec-login').classList.add('hidden');
+        document.getElementById('sec-panel').classList.remove('hidden');
+        document.getElementById('lblUsuario').innerText = res.nombre;
+        document.getElementById('lblRol').innerText = res.rol;
+
+        if (res.rol === 'administrador') {
+          document.getElementById('formAdmin').classList.remove('hidden');
+          const select = document.getElementById('regResponsable');
+          select.innerHTML = '<option value="">-- Seleccionar Responsable --</option>';
+          listaResponsables.forEach(r => {
+            select.innerHTML += `<option value="${r.dni}">${r.nombre}</option>`;
+          });
+        }
+
+        renderRegistros(res.registros);
+      } catch (err) {
+        alert('Error al conectar con el servidor.');
+        console.error(err);
+      } finally {
+        btn.innerText = 'Ingresar al Sistema';
+        btn.disabled = false;
       }
-
-      renderRegistros(res.registros);
     }
 
     async function buscarCod() {
-      const cod = document.getElementById('regCodSuministro').value.trim();
-      if (!cod) return alert('Ingrese un código');
+      const codInput = document.getElementById('regCodSuministro');
+      const btn = document.getElementById('btnBuscar');
+      const cod = codInput.value.trim();
+      
+      if (!cod) return alert('Ingrese un código de suministro');
 
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify({ dni: usuarioActual.dni, accion: 'buscarSuministro', codSuministro: cod })
-      }).then(r => r.json());
+      btn.innerText = '...';
+      btn.disabled = true;
 
-      if (!res.ok) return alert(res.mensaje);
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({ dni: usuarioActual.dni, accion: 'buscarSuministro', codSuministro: cod })
+        }).then(r => r.json());
 
-      document.getElementById('regNombre').value = res.nombreUsuario;
-      document.getElementById('regDomicilio').value = res.domicilio;
-      document.getElementById('regSector').value = res.sector;
-      document.getElementById('regCategoria').value = res.categoria;
-      document.getElementById('regMedidor').value = res.nroMedidor;
+        if (!res.ok) return alert(res.mensaje);
+
+        document.getElementById('regNombre').value = res.nombreUsuario;
+        document.getElementById('regDomicilio').value = res.domicilio;
+        document.getElementById('regSector').value = res.sector;
+        document.getElementById('regCategoria').value = res.categoria;
+        document.getElementById('regMedidor').value = res.nroMedidor;
+      } catch (err) {
+        alert('Error al buscar suministro');
+      } finally {
+        btn.innerText = 'Buscar';
+        btn.disabled = false;
+      }
     }
 
     async function guardarRegistro() {
       const cod = document.getElementById('regCodSuministro').value.trim();
       const resp = document.getElementById('regResponsable').value;
+      const btn = document.getElementById('btnGuardar');
+
       if (!cod || !resp) return alert('Busque un suministro y seleccione un responsable');
+
+      btn.innerText = 'Guardando...';
+      btn.disabled = true;
 
       const payload = {
         dni: usuarioActual.dni,
@@ -128,9 +182,25 @@
         motivoCambio: document.getElementById('regMotivo').value
       };
 
-      const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json());
-      alert(res.mensaje);
-      if (res.ok) login();
+      try {
+        const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json());
+        alert(res.mensaje);
+        if (res.ok) {
+          document.getElementById('regCodSuministro').value = '';
+          document.getElementById('regNombre').value = '';
+          document.getElementById('regDomicilio').value = '';
+          document.getElementById('regSector').value = '';
+          document.getElementById('regCategoria').value = '';
+          document.getElementById('regMedidor').value = '';
+          document.getElementById('regMotivo').value = '';
+          login();
+        }
+      } catch (err) {
+        alert('Error al registrar');
+      } finally {
+        btn.innerText = 'Guardar y Asignar Trabajo';
+        btn.disabled = false;
+      }
     }
 
     function renderRegistros(lista) {
@@ -138,34 +208,42 @@
       cont.innerHTML = '';
 
       if (lista.length === 0) {
-        cont.innerHTML = '<p class="text-sm text-gray-500 text-center">No hay registros pendientes.</p>';
+        cont.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No hay trabajos asignados pendientes.</p>';
         return;
       }
 
       lista.forEach(reg => {
         const esPendiente = reg.estado === 'Pendiente';
         const card = document.createElement('div');
-        card.className = "border rounded-lg p-4 bg-gray-50 space-y-2";
+        card.className = "border rounded-lg p-4 bg-gray-50 space-y-2 border-slate-200";
         
         card.innerHTML = `
-          <div class="flex justify-between items-start">
+          <div class="flex justify-between items-start gap-2">
             <div>
-              <p class="font-bold text-slate-800">${reg.codSuministro} - ${reg.nombreUsuario}</p>
-              <p class="text-xs text-gray-600">${reg.domicilio} (Medidor: ${reg.nroMedidor})</p>
+              <p class="font-bold text-slate-800 text-sm">${reg.codSuministro} - ${reg.nombreUsuario}</p>
+              <p class="text-xs text-gray-600">${reg.domicilio} (Medidor: ${reg.nroMedidor || 'S/N'})</p>
             </div>
-            <span class="text-xs px-2 py-1 rounded font-bold ${esPendiente ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}">${reg.estado}</span>
+            <span class="text-xs px-2 py-0.5 rounded font-bold ${esPendiente ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}">${reg.estado}</span>
           </div>
 
           ${esPendiente ? `
             <div class="border-t pt-2 mt-2 space-y-2">
-              <label class="block text-xs font-bold text-gray-700">Tomar foto o adjuntar PDF:</label>
-              <!-- capture="environment" abre la cámara trasera en smartphones -->
-              <input type="file" id="file-${reg.id}" accept="image/*,application/pdf" capture="environment" class="w-full text-xs">
-              <input type="text" id="obs-${reg.id}" placeholder="Observación opcional" class="w-full border p-1 rounded text-xs">
-              <button onclick="ejecutarTapa('${reg.id}')" class="w-full bg-blue-600 text-white py-1.5 rounded font-bold text-sm">Validar Instalación</button>
+              <label class="block text-xs font-bold text-gray-700">Tomar Foto / Subir PDF:</label>
+              <input type="file" id="file-${reg.id}" accept="image/*,application/pdf" capture="environment" class="w-full text-xs text-gray-700">
+              <input type="text" id="obs-${reg.id}" placeholder="Observación en campo (opcional)" class="w-full border p-1.5 rounded text-xs">
+              <button id="btnValidar-${reg.id}" onclick="ejecutarTapa('${reg.id}')" class="w-full bg-blue-600 text-white py-2 rounded font-bold text-xs hover:bg-blue-700">
+                Validar y Subir Evidencia
+              </button>
             </div>
           ` : `
-            <p class="text-xs text-gray-500">Ejecutado el: ${reg.fechaEjecucion}</p>
+            <div class="border-t pt-2 text-xs text-gray-600 space-y-1">
+              <p><span class="font-semibold">Ejecutado el:</span> ${reg.fechaEjecucion}</p>
+              ${reg.evidencias.length > 0 ? `
+                <div class="flex gap-2 flex-wrap">
+                  ${reg.evidencias.map(e => `<a href="${e.url}" target="_blank" class="text-blue-600 font-bold underline">${e.tipo}</a>`).join(' | ')}
+                </div>
+              ` : ''}
+            </div>
           `}
         `;
         cont.appendChild(card);
@@ -175,6 +253,7 @@
     async function ejecutarTapa(id) {
       const fileInput = document.getElementById(`file-${id}`);
       const obs = document.getElementById(`obs-${id}`).value;
+      const btn = document.getElementById(`btnValidar-${id}`);
       const archivos = [];
 
       if (fileInput.files.length > 0) {
@@ -182,6 +261,9 @@
         const base64 = await toBase64(file);
         archivos.push({ nombre: file.name, mime: file.type, base64 });
       }
+
+      btn.innerText = 'Subiendo evidencia...';
+      btn.disabled = true;
 
       const payload = {
         dni: usuarioActual.dni,
@@ -191,16 +273,23 @@
         archivos
       };
 
-      const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json());
-      alert(res.mensaje);
-      if (res.ok) login();
+      try {
+        const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json());
+        alert(res.mensaje);
+        if (res.ok) login();
+      } catch (err) {
+        alert('Error al procesar la validación');
+      } finaly {
+        btn.innerText = 'Validar y Subir Evidencia';
+        btn.disabled = false;
+      }
     }
 
-    const toBase64 = file => new Promise((res, rej) => {
+    const toBase64 = file => new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = () => res(reader.result);
-      reader.onerror = err => rej(err);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
     });
   </script>
 </body>
