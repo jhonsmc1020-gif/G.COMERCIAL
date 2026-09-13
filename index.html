@@ -16,15 +16,15 @@
         <p class="text-sm text-gray-600 font-semibold">Control de Instalación de Tapas de Agua</p>
       </div>
 
-      <div class="space-y-4">
+      <form onsubmit="login(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-bold text-gray-700 uppercase mb-1">DNI del Responsable</label>
-          <input type="number" id="inputDni" placeholder="Ej: 70750864" class="w-full border p-3 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
+          <input type="number" id="inputDni" placeholder="Ej: 72760364" class="w-full border p-3 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
         </div>
-        <button id="btnIngresar" onclick="login()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">
+        <button type="submit" id="btnIngresar" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">
           Ingresar al Sistema
         </button>
-      </div>
+      </form>
     </div>
 
     <!-- PANEL PRINCIPAL -->
@@ -45,7 +45,7 @@
         
         <div class="flex gap-2">
           <input type="text" id="regCodSuministro" placeholder="Cód. Suministro" class="w-full border p-2 rounded text-sm font-semibold">
-          <button id="btnBuscar" onclick="buscarCod()" class="bg-gray-800 text-white px-4 py-2 rounded text-sm font-bold hover:bg-gray-900">
+          <button type="button" id="btnBuscar" onclick="buscarCod()" class="bg-gray-800 text-white px-4 py-2 rounded text-sm font-bold hover:bg-gray-900">
             Buscar
           </button>
         </div>
@@ -68,7 +68,7 @@
 
         <input type="text" id="regMotivo" placeholder="Motivo de cambio (Opcional)" class="w-full border p-2 rounded text-sm">
         
-        <button id="btnGuardar" onclick="guardarRegistro()" class="w-full bg-green-600 text-white py-2 rounded font-bold text-sm hover:bg-green-700 transition">
+        <button type="button" id="btnGuardar" onclick="guardarRegistro()" class="w-full bg-green-600 text-white py-2 rounded font-bold text-sm hover:bg-green-700 transition">
           Guardar y Asignar Trabajo
         </button>
       </div>
@@ -88,7 +88,9 @@
     let usuarioActual = { dni: '', nombre: '', rol: '' };
     let listaResponsables = [];
 
-    async function login() {
+    async function login(e) {
+      if (e) e.preventDefault(); // Evita recarga del navegador
+
       const dniInput = document.getElementById('inputDni');
       const btn = document.getElementById('btnIngresar');
       const dni = dniInput.value.trim();
@@ -103,6 +105,8 @@
 
         if (!res.ok) {
           alert(res.mensaje || 'DNI no autorizado.');
+          btn.innerText = 'Ingresar al Sistema';
+          btn.disabled = false;
           return;
         }
 
@@ -119,13 +123,13 @@
           const select = document.getElementById('regResponsable');
           select.innerHTML = '<option value="">-- Seleccionar Responsable --</option>';
           listaResponsables.forEach(r => {
-            select.innerHTML += `<option value="${r.dni}">${r.nombre}</option>`;
+            select.innerHTML += `<option value="${r.dni}">${r.nombre || r.dni}</option>`;
           });
         }
 
         renderRegistros(res.registros);
       } catch (err) {
-        alert('Error al conectar con el servidor.');
+        alert('Error de conexión con el servidor.');
         console.error(err);
       } finally {
         btn.innerText = 'Ingresar al Sistema';
@@ -207,7 +211,7 @@
       const cont = document.getElementById('listaRegistros');
       cont.innerHTML = '';
 
-      if (lista.length === 0) {
+      if (!lista || lista.length === 0) {
         cont.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No hay trabajos asignados pendientes.</p>';
         return;
       }
@@ -231,14 +235,14 @@
               <label class="block text-xs font-bold text-gray-700">Tomar Foto / Subir PDF:</label>
               <input type="file" id="file-${reg.id}" accept="image/*,application/pdf" capture="environment" class="w-full text-xs text-gray-700">
               <input type="text" id="obs-${reg.id}" placeholder="Observación en campo (opcional)" class="w-full border p-1.5 rounded text-xs">
-              <button id="btnValidar-${reg.id}" onclick="ejecutarTapa('${reg.id}')" class="w-full bg-blue-600 text-white py-2 rounded font-bold text-xs hover:bg-blue-700">
+              <button type="button" id="btnValidar-${reg.id}" onclick="ejecutarTapa('${reg.id}')" class="w-full bg-blue-600 text-white py-2 rounded font-bold text-xs hover:bg-blue-700">
                 Validar y Subir Evidencia
               </button>
             </div>
           ` : `
             <div class="border-t pt-2 text-xs text-gray-600 space-y-1">
               <p><span class="font-semibold">Ejecutado el:</span> ${reg.fechaEjecucion}</p>
-              ${reg.evidencias.length > 0 ? `
+              ${reg.evidencias && reg.evidencias.length > 0 ? `
                 <div class="flex gap-2 flex-wrap">
                   ${reg.evidencias.map(e => `<a href="${e.url}" target="_blank" class="text-blue-600 font-bold underline">${e.tipo}</a>`).join(' | ')}
                 </div>
@@ -279,7 +283,7 @@
         if (res.ok) login();
       } catch (err) {
         alert('Error al procesar la validación');
-      } finaly {
+      } finally {
         btn.innerText = 'Validar y Subir Evidencia';
         btn.disabled = false;
       }
