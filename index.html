@@ -3,83 +3,127 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Control de Instalación de Tapas - EP HUARAL</title>
+  <title>Control de Instalación de Tapas - EPS EMAPA HUARAL S.A.</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Ocultar flechas de incremento/decremento en inputs de número */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+  </style>
 </head>
-<body class="bg-slate-100 min-h-screen p-3 md:p-6">
-  <div class="max-w-xl mx-auto bg-white rounded-xl shadow-lg p-6">
+<body class="bg-gradient-to-br from-slate-900 via-sky-900 to-blue-950 min-h-screen p-3 md:p-6 flex items-center justify-center font-sans">
+
+  <div class="w-full max-w-lg bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl overflow-hidden border border-white/20">
     
-    <!-- LOGIN -->
-    <div id="sec-login">
-      <div class="text-center mb-6">
-        <h1 class="text-2xl font-bold text-blue-900">EP HUARAL</h1>
-        <p class="text-sm text-gray-600 font-semibold">Control de Instalación de Tapas de Agua</p>
+    <!-- CABECERA INSTITUCIONAL -->
+    <div class="bg-gradient-to-r from-blue-900 via-sky-800 to-cyan-700 p-6 text-white text-center relative overflow-hidden">
+      <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+      
+      <!-- LOGO EPS EMAPA HUARAL S.A. -->
+      <div class="w-20 h-20 bg-white rounded-full mx-auto mb-3 p-1.5 shadow-lg flex items-center justify-center border-2 border-cyan-400/50">
+        <svg class="w-12 h-12 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+        </svg>
       </div>
 
-      <form onsubmit="login(event)" class="space-y-4">
-        <div>
-          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">DNI del Responsable</label>
-          <input type="number" id="inputDni" placeholder="Ej: 71048592" class="w-full border p-3 rounded-lg text-center text-lg font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
-        </div>
-        <button type="submit" id="btnIngresar" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">
-          Ingresar al Sistema
-        </button>
-      </form>
+      <h1 class="text-xl font-black tracking-wide uppercase drop-shadow">EPS EMAPA HUARAL S.A.</h1>
+      <p class="text-xs text-cyan-200 font-medium tracking-wider uppercase mt-0.5">Gestión Comercial y Operaciones</p>
+      <div class="mt-2 inline-block bg-white/15 backdrop-blur-md border border-white/20 text-white text-[11px] px-3 py-1 rounded-full font-semibold">
+        Control de Instalación de Tapas de Agua
+      </div>
     </div>
 
-    <!-- PANEL PRINCIPAL -->
-    <div id="sec-panel" class="hidden space-y-5">
-      <div class="flex justify-between items-center border-b pb-3">
-        <div>
-          <p id="lblUsuario" class="font-bold text-slate-800 text-base"></p>
-          <span id="lblRol" class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold uppercase"></span>
+    <div class="p-6 md:p-8">
+      <!-- LOGIN -->
+      <div id="sec-login" class="space-y-5">
+        <div class="text-center">
+          <h2 class="text-lg font-bold text-slate-800">Iniciar Sesión</h2>
+          <p class="text-xs text-slate-500">Ingrese su DNI para acceder al panel de control</p>
         </div>
-        <button onclick="location.reload()" class="text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-1 rounded-md font-bold hover:bg-red-100">
-          Cerrar Sesión
-        </button>
+
+        <form onsubmit="login(event)" class="space-y-5">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 text-center">DNI del Responsable (8 dígitos)</label>
+            <div class="relative">
+              <input 
+                type="number" 
+                id="inputDni" 
+                placeholder="00000000" 
+                maxlength="8"
+                oninput="if(this.value.length > 8) this.value = this.value.slice(0, 8);"
+                class="w-full border-2 border-slate-200 focus:border-cyan-600 rounded-xl p-3.5 text-center text-2xl font-black text-slate-800 tracking-widest placeholder:text-slate-300 outline-none transition shadow-inner bg-slate-50"
+              >
+            </div>
+          </div>
+
+          <button type="submit" id="btnIngresar" class="w-full bg-gradient-to-r from-cyan-600 via-blue-600 to-blue-800 text-white py-4 rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.99] transition duration-200">
+            INGRESAR AL SISTEMA
+          </button>
+        </form>
       </div>
 
-      <!-- FORMULARIO SOLO PARA ADMINISTRADOR -->
-      <div id="formAdmin" class="hidden bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
-        <h3 class="font-bold text-slate-800 text-sm border-b pb-1">Nuevo Registro de Suministro</h3>
-        
-        <div class="flex gap-2">
-          <input type="text" id="regCodSuministro" placeholder="Cód. Suministro" class="w-full border p-2 rounded text-sm font-semibold">
-          <button type="button" id="btnBuscar" onclick="buscarCod()" class="bg-gray-800 text-white px-4 py-2 rounded text-sm font-bold hover:bg-gray-900">
-            Buscar
+      <!-- PANEL PRINCIPAL -->
+      <div id="sec-panel" class="hidden space-y-6">
+        <div class="flex justify-between items-center bg-slate-50 border border-slate-200 p-3.5 rounded-xl">
+          <div>
+            <p id="lblUsuario" class="font-bold text-slate-800 text-sm md:text-base leading-tight"></p>
+            <span id="lblRol" class="inline-block mt-1 text-[10px] bg-blue-600 text-white px-2.5 py-0.5 rounded-md font-bold uppercase tracking-wider shadow-sm"></span>
+          </div>
+          <button onclick="location.reload()" class="text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg font-bold hover:bg-red-100 transition">
+            Salir
           </button>
         </div>
 
-        <input type="text" id="regNombre" placeholder="Nombre Usuario" class="w-full border p-2 rounded text-sm bg-gray-100 font-medium" readonly>
-        <input type="text" id="regDomicilio" placeholder="Domicilio" class="w-full border p-2 rounded text-sm bg-gray-100 font-medium" readonly>
-        
-        <div class="grid grid-cols-3 gap-2">
-          <input type="text" id="regSector" placeholder="Sector" class="border p-2 rounded text-xs bg-gray-100 text-center" readonly>
-          <input type="text" id="regCategoria" placeholder="Categoría" class="border p-2 rounded text-xs bg-gray-100 text-center" readonly>
-          <input type="text" id="regMedidor" placeholder="Medidor" class="border p-2 rounded text-xs bg-gray-100 text-center" readonly>
+        <!-- FORMULARIO SOLO PARA ADMINISTRADOR -->
+        <div id="formAdmin" class="hidden bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
+          <h3 class="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-cyan-600"></span> Asignar Nuevo Trabajo
+          </h3>
+          
+          <div class="flex gap-2">
+            <input type="text" id="regCodSuministro" placeholder="Cód. Suministro" class="w-full border p-2.5 rounded-lg text-sm font-semibold outline-none focus:border-cyan-600">
+            <button type="button" id="btnBuscar" onclick="buscarCod()" class="bg-slate-800 text-white px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-slate-900 transition">
+              Buscar
+            </button>
+          </div>
+
+          <input type="text" id="regNombre" placeholder="Nombre Usuario" class="w-full border p-2.5 rounded-lg text-sm bg-slate-100 font-medium" readonly>
+          <input type="text" id="regDomicilio" placeholder="Domicilio" class="w-full border p-2.5 rounded-lg text-sm bg-slate-100 font-medium" readonly>
+          
+          <div class="grid grid-cols-3 gap-2">
+            <input type="text" id="regSector" placeholder="Sector" class="border p-2 rounded-lg text-xs bg-slate-100 text-center font-medium" readonly>
+            <input type="text" id="regCategoria" placeholder="Categoría" class="border p-2 rounded-lg text-xs bg-slate-100 text-center font-medium" readonly>
+            <input type="text" id="regMedidor" placeholder="Medidor" class="border p-2 rounded-lg text-xs bg-slate-100 text-center font-medium" readonly>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Personal Asignado:</label>
+            <select id="regResponsable" class="w-full border p-2.5 rounded-lg text-sm font-semibold text-slate-700 outline-none focus:border-cyan-600">
+              <option value="">-- Seleccionar Responsable --</option>
+            </select>
+          </div>
+
+          <input type="text" id="regMotivo" placeholder="Motivo de cambio (Opcional)" class="w-full border p-2.5 rounded-lg text-sm">
+          
+          <button type="button" id="btnGuardar" onclick="guardarRegistro()" class="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold text-sm shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition">
+            Guardar y Asignar Trabajo
+          </button>
         </div>
 
+        <!-- LISTA DE ASIGNACIONES -->
         <div>
-          <label class="block text-xs font-bold text-gray-700 mb-1">Asignar a Personal:</label>
-          <select id="regResponsable" class="w-full border p-2 rounded text-sm font-semibold text-slate-700">
-            <option value="">-- Seleccionar Responsable --</option>
-          </select>
+          <h3 class="font-bold text-slate-800 text-sm mb-3">Registros de Instalación</h3>
+          <div id="listaRegistros" class="space-y-3"></div>
         </div>
-
-        <input type="text" id="regMotivo" placeholder="Motivo de cambio (Opcional)" class="w-full border p-2 rounded text-sm">
-        
-        <button type="button" id="btnGuardar" onclick="guardarRegistro()" class="w-full bg-green-600 text-white py-2 rounded font-bold text-sm hover:bg-green-700 transition">
-          Guardar y Asignar Trabajo
-        </button>
       </div>
 
-      <!-- LISTA DE ASIGNACIONES -->
-      <div>
-        <h3 class="font-bold text-slate-800 text-sm mb-3">Registros de Instalación</h3>
-        <div id="listaRegistros" class="space-y-3"></div>
-      </div>
     </div>
-
   </div>
 
   <script>
@@ -89,15 +133,15 @@
     let listaResponsables = [];
 
     async function login(e) {
-      if (e) e.preventDefault(); // Evita recarga del navegador
+      if (e) e.preventDefault();
 
       const dniInput = document.getElementById('inputDni');
       const btn = document.getElementById('btnIngresar');
       const dni = dniInput.value.trim();
       
-      if (!dni) return alert('Por favor, ingrese su DNI');
+      if (!dni || dni.length !== 8) return alert('Por favor, ingrese un DNI válido de 8 dígitos');
 
-      btn.innerText = 'Cargando...';
+      btn.innerText = 'CARGANDO...';
       btn.disabled = true;
 
       try {
@@ -105,7 +149,7 @@
 
         if (!res.ok) {
           alert(res.mensaje || 'DNI no autorizado.');
-          btn.innerText = 'Ingresar al Sistema';
+          btn.innerText = 'INGRESAR AL SISTEMA';
           btn.disabled = false;
           return;
         }
@@ -129,10 +173,10 @@
 
         renderRegistros(res.registros);
       } catch (err) {
-        alert('Error de conexión con el servidor.');
+        alert('Error de conexión con la base de datos.');
         console.error(err);
       } finally {
-        btn.innerText = 'Ingresar al Sistema';
+        btn.innerText = 'INGRESAR AL SISTEMA';
         btn.disabled = false;
       }
     }
@@ -212,35 +256,35 @@
       cont.innerHTML = '';
 
       if (!lista || lista.length === 0) {
-        cont.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No hay trabajos asignados pendientes.</p>';
+        cont.innerHTML = '<p class="text-xs text-slate-500 text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-300">No hay trabajos asignados pendientes.</p>';
         return;
       }
 
       lista.forEach(reg => {
         const esPendiente = reg.estado === 'Pendiente';
         const card = document.createElement('div');
-        card.className = "border rounded-lg p-4 bg-gray-50 space-y-2 border-slate-200";
+        card.className = "border rounded-xl p-4 bg-slate-50 space-y-2 border-slate-200 shadow-sm";
         
         card.innerHTML = `
           <div class="flex justify-between items-start gap-2">
             <div>
               <p class="font-bold text-slate-800 text-sm">${reg.codSuministro} - ${reg.nombreUsuario}</p>
-              <p class="text-xs text-gray-600">${reg.domicilio} (Medidor: ${reg.nroMedidor || 'S/N'})</p>
+              <p class="text-xs text-slate-600">${reg.domicilio} (Medidor: ${reg.nroMedidor || 'S/N'})</p>
             </div>
-            <span class="text-xs px-2 py-0.5 rounded font-bold ${esPendiente ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}">${reg.estado}</span>
+            <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md font-bold ${esPendiente ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'}">${reg.estado}</span>
           </div>
 
           ${esPendiente ? `
-            <div class="border-t pt-2 mt-2 space-y-2">
-              <label class="block text-xs font-bold text-gray-700">Tomar Foto / Subir PDF:</label>
-              <input type="file" id="file-${reg.id}" accept="image/*,application/pdf" capture="environment" class="w-full text-xs text-gray-700">
-              <input type="text" id="obs-${reg.id}" placeholder="Observación en campo (opcional)" class="w-full border p-1.5 rounded text-xs">
-              <button type="button" id="btnValidar-${reg.id}" onclick="ejecutarTapa('${reg.id}')" class="w-full bg-blue-600 text-white py-2 rounded font-bold text-xs hover:bg-blue-700">
+            <div class="border-t border-slate-200 pt-3 mt-2 space-y-2">
+              <label class="block text-xs font-bold text-slate-700">Tomar Foto / Subir Evidencia:</label>
+              <input type="file" id="file-${reg.id}" accept="image/*,application/pdf" capture="environment" class="w-full text-xs text-slate-700 bg-white border p-1 rounded-lg">
+              <input type="text" id="obs-${reg.id}" placeholder="Observación en campo (opcional)" class="w-full border p-2 rounded-lg text-xs outline-none">
+              <button type="button" id="btnValidar-${reg.id}" onclick="ejecutarTapa('${reg.id}')" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-blue-700 transition">
                 Validar y Subir Evidencia
               </button>
             </div>
           ` : `
-            <div class="border-t pt-2 text-xs text-gray-600 space-y-1">
+            <div class="border-t border-slate-200 pt-2 text-xs text-slate-600 space-y-1">
               <p><span class="font-semibold">Ejecutado el:</span> ${reg.fechaEjecucion}</p>
               ${reg.evidencias && reg.evidencias.length > 0 ? `
                 <div class="flex gap-2 flex-wrap">
