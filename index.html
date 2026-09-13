@@ -25,33 +25,9 @@
     <div class="bg-gradient-to-r from-blue-900 via-sky-800 to-cyan-700 p-6 text-white text-center relative overflow-hidden">
       <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
       
-      <!-- LOGO LIMPIO VECTORIZADO -->
-      <div class="w-24 h-24 bg-white rounded-full mx-auto mb-3 p-2.5 shadow-xl flex items-center justify-center border-2 border-cyan-300">
-        <svg viewBox="0 0 100 120" class="w-full h-full">
-          <!-- Charco -->
-          <ellipse cx="50" cy="110" rx="35" ry="6" fill="#88c5ec"/>
-          <ellipse cx="50" cy="108" rx="28" ry="4" fill="#0c4a79"/>
-          
-          <!-- Gota Exterior Azul Oscuro -->
-          <path d="M 50 8 C 50 8, 12 60, 12 80 A 38 38 0 0 0 88 80 C 88 60, 50 8, 50 8 Z" fill="#0f2b5c"/>
-          <!-- Gota Interior Blanca -->
-          <path d="M 50 14 C 50 14, 16 62, 16 80 A 34 34 0 0 0 84 80 C 84 62, 50 14, 50 14 Z" fill="#ffffff"/>
-          
-          <!-- Franjas cyan interiores -->
-          <rect x="42" y="28" width="16" height="60" fill="#0094d8"/>
-          <rect x="64" y="48" width="12" height="40" fill="#0094d8"/>
-          <rect x="28" y="60" width="8" height="28" fill="#0094d8"/>
-          
-          <!-- Grifo / Válvula estilizada en color oscuro -->
-          <rect x="36" y="58" width="28" height="6" fill="#0f2b5c" rx="2"/>
-          <path d="M 44 58 L 44 48 L 56 48 L 56 58 Z" fill="#0f2b5c"/>
-          <rect x="40" y="44" width="20" height="4" fill="#0f2b5c" rx="1"/>
-          <path d="M 58 64 L 58 74 C 58 78, 64 78, 64 74 L 64 64 Z" fill="#0f2b5c"/>
-
-          <!-- Flecha envolvente celeste -->
-          <path d="M 18 68 C 10 82, 22 100, 42 100" fill="none" stroke="#68c7f2" stroke-width="7" stroke-linecap="round"/>
-          <polygon points="40,94 49,100 40,106" fill="#68c7f2"/>
-        </svg>
+      <!-- LOGO EN BASE64 -->
+      <div class="w-24 h-24 bg-white rounded-full mx-auto mb-3 p-1 shadow-xl flex items-center justify-center border-2 border-cyan-300 overflow-hidden">
+        <img src="data:image/png;base64,..." alt="Logo EPS EMAPA HUARAL" class="w-full h-full object-contain rounded-full">
       </div>
 
       <h1 class="text-xl font-black tracking-wide uppercase drop-shadow">EPS EMAPA HUARAL S.A.</h1>
@@ -169,8 +145,6 @@
 
         if (!res.ok) {
           alert(res.mensaje || 'DNI no autorizado.');
-          btn.innerText = 'INGRESAR AL SISTEMA';
-          btn.disabled = false;
           return;
         }
 
@@ -195,7 +169,7 @@
       } catch (err) {
         alert('Error de conexión con la base de datos.');
         console.error(err);
-      } font-medium {
+      } finally {
         btn.innerText = 'INGRESAR AL SISTEMA';
         btn.disabled = false;
       }
