@@ -263,7 +263,12 @@
           <div class="flex justify-between items-start gap-2">
             <div>
               <p class="font-bold text-slate-800 text-sm">${reg.codSuministro} - ${reg.nombreUsuario}</p>
-              <p class="text-xs text-slate-600">${reg.domicilio} (Medidor: ${reg.nroMedidor || 'S/N'})</p>
+              <p class="text-xs text-slate-600">${reg.domicilio}</p>
+              <div class="flex flex-wrap gap-1.5 mt-1.5">
+                <span class="text-[10px] bg-sky-100 text-sky-800 border border-sky-200 px-2 py-0.5 rounded-md font-bold">Sector: ${reg.sector || 'S/N'}</span>
+                <span class="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md font-bold">Categ.: ${reg.categoria || 'S/N'}</span>
+                <span class="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md font-bold">Medidor: ${reg.nroMedidor || 'S/N'}</span>
+              </div>
             </div>
             <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md font-bold ${esPendiente ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'}">${reg.estado}</span>
           </div>
