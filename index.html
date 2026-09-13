@@ -25,34 +25,32 @@
     <div class="bg-gradient-to-r from-blue-900 via-sky-800 to-cyan-700 p-6 text-white text-center relative overflow-hidden">
       <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
       
-      <!-- LOGO OFICIAL EPS EMAPA HUARAL S.A. (SVG Fidelidad Exacta) -->
-      <div class="w-24 h-24 bg-white rounded-full mx-auto mb-3 p-2 shadow-xl flex items-center justify-center border-2 border-cyan-300">
-        <svg viewBox="0 0 200 230" class="w-full h-full">
-          <!-- Charco base -->
-          <ellipse cx="100" cy="210" rx="75" ry="12" fill="#78B9E6"/>
-          <ellipse cx="100" cy="206" rx="60" ry="9" fill="#005C9E"/>
-
-          <!-- Gota exterior (Borde azul oscuro) -->
-          <path d="M100 10 C100 10 20 120 20 160 A80 80 0 0 0 180 160 C180 120 100 10 100 10 Z" fill="#0E2356"/>
-          <!-- Interior gota blanco -->
-          <path d="M100 18 C100 18 26 122 26 158 A74 74 0 0 0 174 158 C174 122 100 18 100 18 Z" fill="#FFFFFF"/>
+      <!-- LOGO LIMPIO VECTORIZADO -->
+      <div class="w-24 h-24 bg-white rounded-full mx-auto mb-3 p-2.5 shadow-xl flex items-center justify-center border-2 border-cyan-300">
+        <svg viewBox="0 0 100 120" class="w-full h-full">
+          <!-- Charco -->
+          <ellipse cx="50" cy="110" rx="35" ry="6" fill="#88c5ec"/>
+          <ellipse cx="50" cy="108" rx="28" ry="4" fill="#0c4a79"/>
           
-          <!-- Franjas verticales cyan de fondo -->
-          <rect x="85" y="45" width="30" height="120" fill="#0092D8"/>
-          <rect x="130" y="85" width="22" height="75" fill="#0092D8"/>
-          <path d="M60 115 H73 V165 H60 Z" fill="#0092D8"/>
+          <!-- Gota Exterior Azul Oscuro -->
+          <path d="M 50 8 C 50 8, 12 60, 12 80 A 38 38 0 0 0 88 80 C 88 60, 50 8, 50 8 Z" fill="#0f2b5c"/>
+          <!-- Gota Interior Blanca -->
+          <path d="M 50 14 C 50 14, 16 62, 16 80 A 34 34 0 0 0 84 80 C 84 62, 50 14, 50 14 Z" fill="#ffffff"/>
+          
+          <!-- Franjas cyan interiores -->
+          <rect x="42" y="28" width="16" height="60" fill="#0094d8"/>
+          <rect x="64" y="48" width="12" height="40" fill="#0094d8"/>
+          <rect x="28" y="60" width="8" height="28" fill="#0094d8"/>
+          
+          <!-- Grifo / Válvula estilizada en color oscuro -->
+          <rect x="36" y="58" width="28" height="6" fill="#0f2b5c" rx="2"/>
+          <path d="M 44 58 L 44 48 L 56 48 L 56 58 Z" fill="#0f2b5c"/>
+          <rect x="40" y="44" width="20" height="4" fill="#0f2b5c" rx="1"/>
+          <path d="M 58 64 L 58 74 C 58 78, 64 78, 64 74 L 64 64 Z" fill="#0f2b5c"/>
 
-          <!-- Silueta Caño / Grifo -->
-          <g fill="none" stroke="#0092D8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
-            <!-- Llave superior -->
-            <path d="M85 110 H115 M100 110 V122" stroke-width="5"/>
-            <!-- Cuerpo y caño -->
-            <path d="M70 135 H130 M115 135 V155 C115 162 125 162 125 155" stroke-width="7"/>
-          </g>
-
-          <!-- Flecha circular envolvente -->
-          <path d="M30 130 C20 155 45 190 85 190" fill="none" stroke="#79D2F6" stroke-width="14" stroke-linecap="round"/>
-          <polygon points="85,180 102,190 85,200" fill="#79D2F6"/>
+          <!-- Flecha envolvente celeste -->
+          <path d="M 18 68 C 10 82, 22 100, 42 100" fill="none" stroke="#68c7f2" stroke-width="7" stroke-linecap="round"/>
+          <polygon points="40,94 49,100 40,106" fill="#68c7f2"/>
         </svg>
       </div>
 
@@ -197,7 +195,7 @@
       } catch (err) {
         alert('Error de conexión con la base de datos.');
         console.error(err);
-      } finally {
+      } font-medium {
         btn.innerText = 'INGRESAR AL SISTEMA';
         btn.disabled = false;
       }
