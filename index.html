@@ -163,8 +163,14 @@
       throw ultimoError;
     }
 
+    let loginEnProceso = false;
+
     async function login(e) {
       if (e) e.preventDefault();
+
+      // Bloqueo de doble envío: si ya hay un login en curso, ignora
+      // este intento extra (evita el bug de "sale error pero igual entra").
+      if (loginEnProceso) return;
 
       const dniInput = document.getElementById('inputDni');
       const btn = document.getElementById('btnIngresar');
@@ -172,8 +178,10 @@
       
       if (!dni || dni.length !== 8) return alert('Por favor, ingrese un DNI válido de 8 dígitos');
 
+      loginEnProceso = true;
       btn.innerText = 'CARGANDO...';
       btn.disabled = true;
+      dniInput.disabled = true;
 
       try {
         const res = await fetchJsonConReintento(`${API_URL}?dni=${encodeURIComponent(dni)}`);
@@ -204,11 +212,13 @@
 
         renderRegistros(res.registros);
       } catch (err) {
-        alert('Error de conexión con la base de datos.');
+        alert('Error de conexión con la base de datos. Verifica tu internet e intenta de nuevo.');
         console.error(err);
       } finally {
+        loginEnProceso = false;
         btn.innerText = 'INGRESAR AL SISTEMA';
         btn.disabled = false;
+        dniInput.disabled = false;
       }
     }
 
