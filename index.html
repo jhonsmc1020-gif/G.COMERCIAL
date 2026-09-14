@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Control de Instalación de Tapas - EPS EMAPA HUARAL S.A.</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
   <style>
     /* Ocultar flechas de incremento/decremento en inputs de número */
     input[type=number]::-webkit-inner-spin-button, 
@@ -117,6 +118,14 @@
           </button>
         </div>
 
+        <!-- DASHBOARD (SOLO ADMINISTRADOR) -->
+        <div id="dashboardAdmin" class="hidden bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h3 class="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2 mb-3 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-cyan-600"></span> Panel de Cumplimiento
+          </h3>
+          <div id="dashboardContenido"></div>
+        </div>
+
         <!-- LISTA DE ASIGNACIONES -->
         <div>
           <h3 class="font-bold text-slate-800 text-sm mb-3">Registros de Instalación</h3>
@@ -163,11 +172,13 @@
 
         if (res.rol === 'administrador') {
           document.getElementById('formAdmin').classList.remove('hidden');
+          document.getElementById('dashboardAdmin').classList.remove('hidden');
           const select = document.getElementById('regResponsable');
           select.innerHTML = '<option value="">-- Seleccionar Responsable --</option>';
           listaResponsables.forEach(r => {
             select.innerHTML += `<option value="${r.dni}">${r.nombre || r.dni}</option>`;
           });
+          renderDashboardAdmin(res.registros, res.responsables);
         }
 
         renderRegistros(res.registros);
@@ -295,6 +306,127 @@
           return `<span class="text-[10px] bg-red-100 text-red-800 border border-red-200 px-2 py-0.5 rounded-md font-bold">⚠️ Fuera de plazo por ${diasTarde} día(s)</span>`;
         }
       }
+    }
+
+    // Determina el estado real de cumplimiento de un registro
+    function estadoCumplimiento(reg) {
+      const fechaAsignacion = parseFechaDDMMYYYY(reg.fechaSolicitud);
+      const plazo = parseInt(reg.plazoDias, 10) || 3;
+      if (!fechaAsignacion) return 'desconocido';
+
+      const fechaLimite = new Date(fechaAsignacion);
+      fechaLimite.setDate(fechaLimite.getDate() + plazo);
+
+      if (reg.estado === 'Pendiente') {
+        return new Date() > fechaLimite ? 'pendiente_vencido' : 'pendiente_en_plazo';
+      } else {
+        const fechaEjecucion = parseFechaDDMMYYYY(reg.fechaEjecucion);
+        if (!fechaEjecucion) return 'desconocido';
+        return fechaEjecucion <= fechaLimite ? 'cumplido' : 'fuera_plazo';
+      }
+    }
+
+    // Construye el panel de KPIs + gráfico de barras por personal
+    function renderDashboardAdmin(registros, responsables) {
+      const cont = document.getElementById('dashboardContenido');
+
+      if (!registros || registros.length === 0) {
+        cont.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">No hay datos para mostrar todavía.</p>';
+        return;
+      }
+
+      const nombresPorDni = {};
+      (responsables || []).forEach(r => { nombresPorDni[r.dni] = r.nombre; });
+
+      let totalAsignados = registros.length;
+      let totalEjecutados = 0, totalPendientes = 0, totalCumplidos = 0, totalFueraPlazo = 0;
+      const porPersona = {};
+
+      registros.forEach(reg => {
+        const dni = reg.dniResponsable || 'sin_asignar';
+        if (!porPersona[dni]) {
+          porPersona[dni] = {
+            nombre: nombresPorDni[dni] || (dni === 'sin_asignar' ? 'Sin asignar' : dni),
+            asignados: 0, ejecutados: 0, cumplidos: 0, fueraPlazo: 0
+          };
+        }
+        porPersona[dni].asignados++;
+
+        const estado = estadoCumplimiento(reg);
+        if (reg.estado === 'Ejecutado') {
+          totalEjecutados++;
+          porPersona[dni].ejecutados++;
+          if (estado === 'cumplido') { totalCumplidos++; porPersona[dni].cumplidos++; }
+          else if (estado === 'fuera_plazo') { totalFueraPlazo++; porPersona[dni].fueraPlazo++; }
+        } else {
+          totalPendientes++;
+        }
+      });
+
+      const pctCumplimiento = totalAsignados > 0 ? Math.round((totalCumplidos / totalAsignados) * 100) : 0;
+
+      cont.innerHTML = `
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+          <div class="bg-slate-800 text-white rounded-xl p-3 text-center">
+            <p class="text-2xl font-black">${totalAsignados}</p>
+            <p class="text-[10px] uppercase tracking-wider text-slate-300">Total Asignados</p>
+          </div>
+          <div class="bg-emerald-600 text-white rounded-xl p-3 text-center">
+            <p class="text-2xl font-black">${totalCumplidos}</p>
+            <p class="text-[10px] uppercase tracking-wider text-emerald-100">Cumplidos a Tiempo</p>
+          </div>
+          <div class="bg-red-600 text-white rounded-xl p-3 text-center">
+            <p class="text-2xl font-black">${totalFueraPlazo}</p>
+            <p class="text-[10px] uppercase tracking-wider text-red-100">Fuera de Plazo</p>
+          </div>
+          <div class="bg-amber-500 text-white rounded-xl p-3 text-center">
+            <p class="text-2xl font-black">${totalPendientes}</p>
+            <p class="text-[10px] uppercase tracking-wider text-amber-100">Pendientes</p>
+          </div>
+          <div class="bg-sky-600 text-white rounded-xl p-3 text-center">
+            <p class="text-2xl font-black">${totalEjecutados}</p>
+            <p class="text-[10px] uppercase tracking-wider text-sky-100">Ejecutados</p>
+          </div>
+          <div class="bg-slate-500 text-white rounded-xl p-3 text-center">
+            <p class="text-2xl font-black">${pctCumplimiento}%</p>
+            <p class="text-[10px] uppercase tracking-wider text-slate-200">% Cumplimiento</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-3 border border-slate-200">
+          <canvas id="chartPersonal" height="220"></canvas>
+        </div>
+      `;
+
+      const nombresPersonal = Object.values(porPersona).map(p => p.nombre);
+      const dataCumplidos = Object.values(porPersona).map(p => p.cumplidos);
+      const dataFueraPlazo = Object.values(porPersona).map(p => p.fueraPlazo);
+      const dataPendientes = Object.values(porPersona).map(p => p.asignados - p.ejecutados);
+
+      if (window.chartPersonalInstance) window.chartPersonalInstance.destroy();
+
+      const ctx = document.getElementById('chartPersonal').getContext('2d');
+      window.chartPersonalInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: nombresPersonal,
+          datasets: [
+            { label: 'Cumplidos', data: dataCumplidos, backgroundColor: '#10b981' },
+            { label: 'Fuera de plazo', data: dataFueraPlazo, backgroundColor: '#ef4444' },
+            { label: 'Pendientes', data: dataPendientes, backgroundColor: '#f59e0b' }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10 } },
+            title: { display: true, text: 'Trabajos por personal', font: { size: 12 } }
+          },
+          scales: {
+            x: { stacked: true, ticks: { font: { size: 10 } } },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } }
+          }
+        }
+      });
     }
 
     function renderRegistros(lista) {
