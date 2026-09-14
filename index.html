@@ -77,8 +77,8 @@
     <!-- CONTENIDO PRINCIPAL -->
     <main class="flex-1 p-4 md:p-6 space-y-6 max-w-7xl mx-auto w-full">
       
-      <!-- RESUMEN METRICAS -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <!-- RESUMEN METRICAS (oculto para operativos) -->
+      <div id="kpiContainer" class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-white">
           <span class="text-xs font-semibold text-slate-400 block">Total Solicitudes</span>
           <span id="kpiTotal" class="text-2xl font-bold text-sky-400">0</span>
@@ -98,7 +98,7 @@
       </div>
 
       <!-- FORMULARIO & GRAFICO -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div id="formGraficoRow" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         <!-- FORMULARIO REGISTRO (Solo visible para Administrador) -->
         <div id="formContainer" class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-white space-y-4">
@@ -262,24 +262,31 @@
 
         const formContainer = document.getElementById('formContainer');
         const chartContainer = document.getElementById('chartContainer');
+        const kpiContainer = document.getElementById('kpiContainer');
+        const formGraficoRow = document.getElementById('formGraficoRow');
 
         const esOperativo = ['operativo', 'operador', 'tecnico', 'técnico'].includes(data.rol.toLowerCase());
 
         if (esOperativo) {
-          formContainer.classList.add('hidden');
-          chartContainer.classList.remove('lg:col-span-2');
-          chartContainer.classList.add('lg:col-span-3');
+          // Para operativos: solo la tabla con su carga. Sin KPIs ni gráfico general.
+          kpiContainer.classList.add('hidden');
+          formGraficoRow.classList.add('hidden');
           document.getElementById('tituloTabla').textContent = `📋 Mi Carga Asignada (${data.nombre})`;
         } else {
+          kpiContainer.classList.remove('hidden');
+          formGraficoRow.classList.remove('hidden');
           formContainer.classList.remove('hidden');
           chartContainer.classList.remove('lg:col-span-3');
           chartContainer.classList.add('lg:col-span-2');
           document.getElementById('tituloTabla').textContent = '📋 Listado General de Órdenes';
         }
 
-        await cargarResponsables();
-        initChart();
-        await cargarRegistrosSupabase();
+        // cargarResponsables y cargarRegistrosSupabase no dependen entre sí:
+        // se disparan en paralelo para no sumar sus tiempos de espera.
+        // (cargarResponsables se sigue cargando para operativos también, porque
+        // la tabla la usa para mostrar el NOMBRE del responsable, no solo el admin la usa)
+        if (!esOperativo) initChart();
+        await Promise.all([cargarResponsables(), cargarRegistrosSupabase()]);
         iniciarActualizacionEnVivo();
       } else {
         errorMsg.classList.remove('hidden');
