@@ -178,7 +178,7 @@
         <!-- DASHBOARD GRAFICO -->
         <div id="chartContainer" class="lg:col-span-2 bg-slate-800 rounded-xl p-5 border border-slate-700 text-white flex flex-col justify-between">
           <h2 class="text-md font-bold text-slate-100 border-b border-slate-700 pb-2">
-            📊 Estado General de Instalaciones
+            📊 Carga Emitida vs. Instalado (por responsable)
           </h2>
           <div class="relative h-64 w-full mt-4 flex items-center justify-center">
             <canvas id="estadoChart"></canvas>
@@ -465,6 +465,8 @@
 
     // Subida individual de archivo (foto o documento) desde la tabla, para un slot
     // específico: 'foto' (Archivo 1) o 'archivo2' (Archivo 2). Usada por operativos y admin.
+    // Al subir evidencia se asume que el trabajo quedó hecho, así que la orden pasa
+    // a "Instalado" automáticamente (y se registra la fecha de ejecución si no la tenía).
     async function subirArchivoFila(idRegistro, codSuministro, campo, inputElement) {
       if (!inputElement.files.length) return;
       const btnLabel = inputElement.previousElementSibling;
@@ -476,7 +478,12 @@
         const urlDrive = await subirFotoDrive(file, codSuministro);
 
         if (urlDrive) {
-          await db.from('registros').update({ [campo]: urlDrive }).eq('id', idRegistro);
+          const item = cacheRegistros.find(r => r.id === idRegistro);
+          const cambios = { [campo]: urlDrive, estado: 'Instalado' };
+          if (item && !item.fechaEjecucion) {
+            cambios.fechaEjecucion = new Date().toISOString().split('T')[0];
+          }
+          await db.from('registros').update(cambios).eq('id', idRegistro);
           await cargarRegistrosSupabase();
         } else {
           alert("Error al subir el archivo a Drive.");
@@ -614,10 +621,7 @@
       document.getElementById('kpiProceso').textContent = proc;
       document.getElementById('kpiInstalados').textContent = inst;
 
-      if (chartInstance) {
-        chartInstance.data.datasets[0].data = [pend, proc, inst];
-        chartInstance.update();
-      }
+      actualizarGraficoCargaVsInstalado();
     }
 
     async function cambiarEstadoSupabase(id, nuevoEstado) {
@@ -639,23 +643,49 @@
       chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: ['Pendientes', 'En Proceso', 'Instalados'],
-          datasets: [{
-            label: 'Cantidad de Tapas',
-            data: [0, 0, 0],
-            backgroundColor: ['#f59e0b', '#3b82f6', '#10b981']
-          }]
+          labels: [],
+          datasets: [
+            { label: 'Asignadas (emitido)', data: [], backgroundColor: '#38bdf8' },
+            { label: 'Instaladas (realizado)', data: [], backgroundColor: '#10b981' }
+          ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
+          plugins: { legend: { display: true, labels: { color: '#cbd5e1' } } },
           scales: {
-            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+            y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: '#334155' } },
             x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
           }
         }
       });
+    }
+
+    // Agrupa cacheRegistros por responsable y compara cuánto se le emitió (asignó)
+    // contra cuánto ya está en estado "Instalado" — la carga de trabajo vs. lo realizado.
+    function actualizarGraficoCargaVsInstalado() {
+      if (!chartInstance) return;
+
+      const porResponsable = {};
+      listaResponsables.forEach(r => {
+        porResponsable[String(r.dni).trim()] = { nombre: r.nombre, asignadas: 0, instaladas: 0 };
+      });
+
+      cacheRegistros.forEach(item => {
+        const key = String(item.dniResponsable).trim();
+        if (!porResponsable[key]) {
+          porResponsable[key] = { nombre: key, asignadas: 0, instaladas: 0 };
+        }
+        porResponsable[key].asignadas++;
+        if (item.estado === 'Instalado') porResponsable[key].instaladas++;
+      });
+
+      const entradas = Object.values(porResponsable).filter(p => p.asignadas > 0);
+
+      chartInstance.data.labels = entradas.map(p => p.nombre);
+      chartInstance.data.datasets[0].data = entradas.map(p => p.asignadas);
+      chartInstance.data.datasets[1].data = entradas.map(p => p.instaladas);
+      chartInstance.update();
     }
 
     // Actualización automática: se suscribe a cambios en tiempo real de la tabla "registros"
