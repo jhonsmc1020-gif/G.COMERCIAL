@@ -1,509 +1,763 @@
-const SUPABASE_URL = 'https://utiqpzprvjuetcmmtouf.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_zPmCLXrSPTJUsrludHTdng_Lddn-Hym';
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx0yR0csqgwDiB0iQgOB8hI_UDmW-UN4TISiRFCyib2o0m0s6CGbZb1AXrR7P0-odsuKw/exec';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EPS EMAPA HUARAL S.A. - Control de Instalación de Tapas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+    @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+    .live-dot { animation: pulseDot 1.5s infinite; }
+  </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-800 font-sans antialiased">
 
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  <!-- MODAL DE INGRESO POR DNI -->
+  <div id="loginModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+      <div class="bg-gradient-to-r from-blue-900 via-sky-800 to-cyan-700 p-6 text-white text-center">
+        <div class="w-16 h-16 bg-white rounded-full mx-auto mb-2 p-1 shadow-lg flex items-center justify-center border-2 border-cyan-300 overflow-hidden">
+          <span class="text-3xl">💧</span>
+        </div>
+        <h2 class="text-xl font-bold tracking-wide">EPS EMAPA HUARAL S.A.</h2>
+        <p class="text-xs text-cyan-200 mt-1">Acceso de Personal - Gestión de Tapas</p>
+      </div>
 
-let usuarioActual = null;
-let chartInstance = null;
-let listaResponsables = [];
-let cacheRegistros = [];      // últimos registros traídos de Supabase (según el rol)
-let realtimeChannel = null;
-let cargaEnCurso = false;     // evita disparar 2 consultas a la vez (ej: tu propia acción + el eco de Realtime)
-let recargaPendiente = false;
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Ingrese su número de DNI</label>
+          <input type="number" id="dniInput" placeholder="Ej: 72760364 o 70145269" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium">
+        </div>
+        
+        <div id="loginError" class="hidden text-xs text-red-600 font-medium bg-red-50 p-2.5 rounded-lg border border-red-200 text-center">
+          DNI no registrado en la tabla "responsables". Contacte al administrador.
+        </div>
 
-async function validarDNI() {
-  const dniInputRaw = document.getElementById('dniInput').value.trim();
-  const errorMsg = document.getElementById('loginError');
-  errorMsg.classList.add('hidden');
+        <button onclick="validarDNI()" class="w-full py-2.5 bg-sky-700 hover:bg-sky-800 text-white font-semibold rounded-lg shadow-md transition-all text-sm">
+          Ingresar al Sistema
+        </button>
+      </div>
+    </div>
+  </div>
 
-  if (!dniInputRaw) return;
+  <!-- APLICACIÓN PRINCIPAL -->
+  <div id="mainApp" class="hidden min-h-screen flex flex-col">
+    
+    <!-- NAVBAR TOP -->
+    <header class="bg-slate-800 border-b border-slate-700 text-white px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-white rounded-lg flex items-center justify-center overflow-hidden p-0.5">
+          <span class="text-xl">💧</span>
+        </div>
+        <div>
+          <h1 class="text-sm font-bold leading-tight">EPS EMAPA HUARAL S.A.</h1>
+          <p class="text-[11px] text-cyan-300 flex items-center gap-1">
+            <span id="liveDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot"></span>
+            Gestión Operativa de Tapas · en vivo
+          </p>
+        </div>
+      </div>
 
-  const { data, error } = await db
-    .from('responsables')
-    .select('*')
-    .eq('dni', dniInputRaw)
-    .single();
+      <div class="flex items-center gap-4">
+        <div class="text-right hidden sm:block">
+          <p id="userNombre" class="text-xs font-semibold text-slate-100">-</p>
+          <span id="userRol" class="text-[10px] px-2 py-0.5 rounded-full bg-sky-900 text-cyan-200 uppercase font-medium">Rol</span>
+        </div>
+        <button onclick="cerrarSesion()" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-md transition text-slate-200 font-medium">
+          Salir
+        </button>
+      </div>
+    </header>
 
-  if (data && !error) {
-    usuarioActual = data;
-    usuarioActual.dni = String(usuarioActual.dni).trim();
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-1 p-4 md:p-6 space-y-6 max-w-7xl mx-auto w-full">
+      
+      <!-- RESUMEN METRICAS (oculto para operativos) -->
+      <div id="kpiContainer" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-white">
+          <span class="text-xs font-semibold text-slate-400 block">Total Solicitudes</span>
+          <span id="kpiTotal" class="text-2xl font-bold text-sky-400">0</span>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-white">
+          <span class="text-xs font-semibold text-slate-400 block">Pendientes</span>
+          <span id="kpiPendientes" class="text-2xl font-bold text-amber-400">0</span>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-white">
+          <span class="text-xs font-semibold text-slate-400 block">En Proceso</span>
+          <span id="kpiProceso" class="text-2xl font-bold text-blue-400">0</span>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-white">
+          <span class="text-xs font-semibold text-slate-400 block">Instalados</span>
+          <span id="kpiInstalados" class="text-2xl font-bold text-emerald-400">0</span>
+        </div>
+      </div>
 
-    document.getElementById('loginModal').classList.add('hidden');
-    document.getElementById('mainApp').classList.remove('hidden');
-    document.getElementById('userNombre').textContent = data.nombre;
-    document.getElementById('userRol').textContent = data.rol.toUpperCase();
+      <!-- FORMULARIO & GRAFICO -->
+      <div id="formGraficoRow" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- FORMULARIO REGISTRO (Solo visible para Administrador) -->
+        <div id="formContainer" class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-white space-y-4">
+          <h2 class="text-md font-bold text-slate-100 border-b border-slate-700 pb-2 flex items-center justify-between">
+            <span>📝 Registrar Orden de Instalación</span>
+            <span class="text-xs font-normal text-sky-400">Administrador</span>
+          </h2>
 
-    const formContainer = document.getElementById('formContainer');
-    const chartContainer = document.getElementById('chartContainer');
-    const kpiContainer = document.getElementById('kpiContainer');
-    const formGraficoRow = document.getElementById('formGraficoRow');
+          <form id="registroForm" class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Buscar en Padrón (Suministro / Nombre)</label>
+              <div class="relative">
+                <input type="text" id="busquedaSuministro" placeholder="Escriba para buscar en 20k+ registros..." class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-sky-500">
+                <div id="sugerenciasSuministro" class="hidden absolute top-full left-0 right-0 bg-slate-900 border border-slate-700 rounded-lg mt-1 max-h-56 overflow-y-auto z-20 shadow-xl"></div>
+              </div>
+            </div>
 
-    const esOperativo = ['operativo', 'operador', 'tecnico', 'técnico'].includes(data.rol.toLowerCase());
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Cod. Suministro</label>
+                <input type="number" id="codSuministro" required class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white" readonly>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Sector</label>
+                <input type="text" id="sector" required class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white" readonly>
+              </div>
+            </div>
 
-    if (esOperativo) {
-      // Para operativos: solo la tabla con su carga. Sin KPIs ni gráfico general.
-      kpiContainer.classList.add('hidden');
-      formGraficoRow.classList.add('hidden');
-      document.getElementById('tituloTabla').textContent = `📋 Mi Carga Asignada (${data.nombre})`;
-    } else {
-      kpiContainer.classList.remove('hidden');
-      formGraficoRow.classList.remove('hidden');
-      formContainer.classList.remove('hidden');
-      chartContainer.classList.remove('lg:col-span-3');
-      chartContainer.classList.add('lg:col-span-2');
-      document.getElementById('tituloTabla').textContent = '📋 Listado General de Órdenes';
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Nombre de Usuario</label>
+              <input type="text" id="nombreUsuario" required class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white" readonly>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Domicilio</label>
+              <input type="text" id="domicilio" required class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white" readonly>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Categoría</label>
+                <input type="text" id="categoria" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white" readonly>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">N° Medidor</label>
+                <input type="text" id="nroMedidor" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white" readonly>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Motivo de Instalación / Cambio</label>
+              <select id="motivoCambio" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none">
+                <option value="Hurto / Robo de Tapa">Hurto / Robo de Tapa</option>
+                <option value="Deterioro / Tapa Rota">Deterioro / Tapa Rota</option>
+                <option value="Reordenamiento / Mantenimiento">Reordenamiento / Mantenimiento</option>
+                <option value="Nueva Conexión">Nueva Conexión</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Adjuntar Foto(s) o Documento(s) — máx. 2 (Google Drive)</label>
+              <input type="file" id="fotoInput" accept="image/*,.pdf,.doc,.docx" multiple class="w-full text-xs text-slate-300 bg-slate-900 border border-slate-700 rounded-lg p-1.5 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-sky-600 file:text-white hover:file:bg-sky-500">
+              <p id="fotoInputAviso" class="hidden text-[10px] text-amber-400 mt-1">Solo se subirán los primeros 2 archivos seleccionados.</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Asignar Responsable Operativo</label>
+              <select id="dniResponsableSelect" required class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none"></select>
+            </div>
+
+            <button type="submit" id="btnGuardar" class="w-full py-2.5 bg-sky-600 hover:bg-sky-500 font-semibold rounded-lg text-white text-xs transition shadow-md">
+              Guardar Registro en Supabase
+            </button>
+          </form>
+        </div>
+
+        <!-- DASHBOARD GRAFICO -->
+        <div id="chartContainer" class="lg:col-span-2 bg-slate-800 rounded-xl p-5 border border-slate-700 text-white flex flex-col justify-between">
+          <h2 class="text-md font-bold text-slate-100 border-b border-slate-700 pb-2">
+            📊 Carga Emitida vs. Instalado (por responsable)
+          </h2>
+          <div class="relative h-64 w-full mt-4 flex items-center justify-center">
+            <canvas id="estadoChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TABLA DE ORDENES -->
+      <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-white space-y-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <h2 id="tituloTabla" class="text-md font-bold text-slate-100">📋 Listado de Órdenes</h2>
+          
+          <div class="flex flex-wrap gap-2">
+            <select id="filtroEstado" onchange="renderTablaDesdeCache()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 px-3 py-1.5 rounded-lg">
+              <option value="TODOS">Todos los Estados</option>
+              <option value="Pendiente">Pendientes</option>
+              <option value="En Proceso">En Proceso</option>
+              <option value="Instalado">Instalados</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Indicador de carga / error (nuevo) -->
+        <div id="cargaIndicador" class="hidden text-xs text-sky-400 font-medium">⏳ Cargando listado completo...</div>
+        <div id="cargaError" class="hidden text-xs text-red-400 font-medium bg-red-950/40 border border-red-800 rounded-lg p-2"></div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-900 text-slate-400 uppercase font-semibold border-b border-slate-700">
+              <tr>
+                <th class="p-3">Suministro</th>
+                <th class="p-3">Usuario / Dirección</th>
+                <th class="p-3">Sector</th>
+                <th class="p-3">Motivo</th>
+                <th class="p-3">Responsable</th>
+                <th class="p-3 text-center">F. Registro</th>
+                <th class="p-3 text-center">F. Ejecución</th>
+                <th class="p-3 text-center">Evidencia (máx. 2)</th>
+                <th class="p-3 text-center">Estado</th>
+                <th class="p-3 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tablaRegistros" class="divide-y divide-slate-700/50">
+              <!-- Filas dinámicas -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://utiqpzprvjuetcmmtouf.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_zPmCLXrSPTJUsrludHTdng_Lddn-Hym';
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx0yR0csqgwDiB0iQgOB8hI_UDmW-UN4TISiRFCyib2o0m0s6CGbZb1AXrR7P0-odsuKw/exec';
+
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let usuarioActual = null;
+    let chartInstance = null;
+    let listaResponsables = [];
+    let cacheRegistros = [];      // últimos registros traídos de Supabase (según el rol)
+    let realtimeChannel = null;
+    let cargaEnCurso = false;     // evita disparar 2 consultas a la vez (ej: tu propia acción + el eco de Realtime)
+    let recargaPendiente = false;
+    let debounceRealtime = null;  // agrupa varios cambios seguidos (de varios operativos) en una sola recarga
+
+    const TAMANO_PAGINA = 1000;   // Supabase corta cada consulta en 1000 filas por defecto, aunque no pidas límite
+
+    async function validarDNI() {
+      const dniInputRaw = document.getElementById('dniInput').value.trim();
+      const errorMsg = document.getElementById('loginError');
+      errorMsg.classList.add('hidden');
+
+      if (!dniInputRaw) return;
+
+      const { data, error } = await db
+        .from('responsables')
+        .select('*')
+        .eq('dni', dniInputRaw)
+        .single();
+
+      if (data && !error) {
+        usuarioActual = data;
+        usuarioActual.dni = String(usuarioActual.dni).trim();
+
+        document.getElementById('loginModal').classList.add('hidden');
+        document.getElementById('mainApp').classList.remove('hidden');
+        document.getElementById('userNombre').textContent = data.nombre;
+        document.getElementById('userRol').textContent = data.rol.toUpperCase();
+
+        const formContainer = document.getElementById('formContainer');
+        const chartContainer = document.getElementById('chartContainer');
+        const kpiContainer = document.getElementById('kpiContainer');
+        const formGraficoRow = document.getElementById('formGraficoRow');
+
+        const esOperativo = ['operativo', 'operador', 'tecnico', 'técnico'].includes(data.rol.toLowerCase());
+
+        if (esOperativo) {
+          kpiContainer.classList.add('hidden');
+          formGraficoRow.classList.add('hidden');
+          document.getElementById('tituloTabla').textContent = `📋 Mi Carga Asignada (${data.nombre})`;
+        } else {
+          kpiContainer.classList.remove('hidden');
+          formGraficoRow.classList.remove('hidden');
+          formContainer.classList.remove('hidden');
+          chartContainer.classList.remove('lg:col-span-3');
+          chartContainer.classList.add('lg:col-span-2');
+          document.getElementById('tituloTabla').textContent = '📋 Listado General de Órdenes';
+        }
+
+        if (!esOperativo) initChart();
+
+        await Promise.all([
+          cargarResponsables(),
+          cargarRegistrosSupabase()
+        ]);
+
+        // Repintado final "gratis" (sin ir a la base de datos): corrige cualquier fila
+        // que se haya pintado con el DNI crudo si cargarRegistrosSupabase terminó
+        // antes que cargarResponsables.
+        renderTablaDesdeCache();
+
+        iniciarActualizacionEnVivo();
+      } else {
+        errorMsg.classList.remove('hidden');
+      }
     }
 
-    // cargarResponsables (tabla pequeña, pocos usuarios del sistema) y
-    // cargarRegistrosSupabase (puede traer muchas más filas, sobre todo para
-    // el admin, que ve la tabla completa sin filtro) se disparan EN PARALELO
-    // con Promise.all, para que el tiempo total sea el máximo de las dos y
-    // no la suma.
-    //
-    // Como cargarRegistrosSupabase pinta la tabla internamente apenas termina,
-    // puede ocurrir que lo haga ANTES de que listaResponsables ya esté cargada,
-    // mostrando momentáneamente el DNI en vez del nombre del responsable.
-    // Por eso, apenas ambas promesas resuelven, se hace un repintado final
-    // "gratis" (renderTablaDesdeCache no consulta la base de datos, solo
-    // vuelve a dibujar con los datos que ya están en memoria), que corrige
-    // cualquier fila que se haya pintado con el DNI crudo.
-    if (!esOperativo) initChart();
-
-    await Promise.all([
-      cargarResponsables(),
-      cargarRegistrosSupabase()
-    ]);
-
-    renderTablaDesdeCache();
-
-    iniciarActualizacionEnVivo();
-  } else {
-    errorMsg.classList.remove('hidden');
-  }
-}
-
-function cerrarSesion() {
-  usuarioActual = null;
-  cacheRegistros = [];
-  if (realtimeChannel) {
-    db.removeChannel(realtimeChannel);
-    realtimeChannel = null;
-  }
-  document.getElementById('mainApp').classList.add('hidden');
-  document.getElementById('loginModal').classList.remove('hidden');
-  document.getElementById('dniInput').value = '';
-}
-
-async function cargarResponsables() {
-  const { data } = await db.from('responsables').select('*');
-  if (data) {
-    listaResponsables = data;
-    const select = document.getElementById('dniResponsableSelect');
-    select.innerHTML = '<option value="" disabled selected>-- Seleccione un responsable --</option>';
-    data.forEach(r => {
-      const opt = document.createElement('option');
-      opt.value = String(r.dni).trim();
-      opt.textContent = `${r.nombre} (${r.rol})`;
-      select.appendChild(opt);
-    });
-  }
-}
-
-const inputBusqueda = document.getElementById('busquedaSuministro');
-const cajaSugerencias = document.getElementById('sugerenciasSuministro');
-let timeoutBusqueda = null;
-
-inputBusqueda.addEventListener('input', function() {
-  clearTimeout(timeoutBusqueda);
-  const val = this.value.trim();
-  cajaSugerencias.innerHTML = '';
-  if (!val) { cajaSugerencias.classList.add('hidden'); return; }
-
-  timeoutBusqueda = setTimeout(async () => {
-    let query = db.from('data').select('*').limit(10);
-
-    if (!isNaN(val)) {
-      query = query.eq('codSuministro', parseInt(val));
-    } else {
-      query = query.ilike('nombreUsuario', `%${val}%`);
+    function cerrarSesion() {
+      usuarioActual = null;
+      cacheRegistros = [];
+      clearTimeout(debounceRealtime);
+      if (realtimeChannel) {
+        db.removeChannel(realtimeChannel);
+        realtimeChannel = null;
+      }
+      document.getElementById('mainApp').classList.add('hidden');
+      document.getElementById('loginModal').classList.remove('hidden');
+      document.getElementById('dniInput').value = '';
     }
 
-    const { data } = await query;
+    async function cargarResponsables() {
+      const { data } = await db.from('responsables').select('*');
+      if (data) {
+        listaResponsables = data;
+        const select = document.getElementById('dniResponsableSelect');
+        select.innerHTML = '<option value="" disabled selected>-- Seleccione un responsable --</option>';
+        data.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = String(r.dni).trim();
+          opt.textContent = `${r.nombre} (${r.rol})`;
+          select.appendChild(opt);
+        });
+      }
+    }
 
-    if (data && data.length > 0) {
-      cajaSugerencias.classList.remove('hidden');
+    const inputBusqueda = document.getElementById('busquedaSuministro');
+    const cajaSugerencias = document.getElementById('sugerenciasSuministro');
+    let timeoutBusqueda = null;
+
+    inputBusqueda.addEventListener('input', function() {
+      clearTimeout(timeoutBusqueda);
+      const val = this.value.trim();
       cajaSugerencias.innerHTML = '';
-      data.forEach(item => {
-        const div = document.createElement('div');
-        div.className = "p-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 text-xs";
-        div.innerHTML = `<span class="font-bold text-sky-400">${item.codSuministro}</span> - ${item.nombreUsuario} <br><span class="text-[10px] text-slate-400">${item.domicilio}</span>`;
-        div.onclick = () => seleccionarSuministro(item);
-        cajaSugerencias.appendChild(div);
-      });
-    } else {
+      if (!val) { cajaSugerencias.classList.add('hidden'); return; }
+
+      timeoutBusqueda = setTimeout(async () => {
+        let query = db.from('data').select('*').limit(10);
+
+        if (!isNaN(val)) {
+          query = query.eq('codSuministro', parseInt(val));
+        } else {
+          query = query.ilike('nombreUsuario', `%${val}%`);
+        }
+
+        const { data } = await query;
+
+        if (data && data.length > 0) {
+          cajaSugerencias.classList.remove('hidden');
+          cajaSugerencias.innerHTML = '';
+          data.forEach(item => {
+            const div = document.createElement('div');
+            div.className = "p-2 hover:bg-slate-800 cursor-pointer border-b border-slate-800 text-xs";
+            div.innerHTML = `<span class="font-bold text-sky-400">${item.codSuministro}</span> - ${item.nombreUsuario} <br><span class="text-[10px] text-slate-400">${item.domicilio}</span>`;
+            div.onclick = () => seleccionarSuministro(item);
+            cajaSugerencias.appendChild(div);
+          });
+        } else {
+          cajaSugerencias.classList.add('hidden');
+        }
+      }, 250);
+    });
+
+    function seleccionarSuministro(item) {
+      document.getElementById('codSuministro').value = item.codSuministro;
+      document.getElementById('nombreUsuario').value = item.nombreUsuario;
+      document.getElementById('domicilio').value = item.domicilio;
+      document.getElementById('sector').value = item.sector;
+      document.getElementById('categoria').value = item.categoria;
+      document.getElementById('nroMedidor').value = item.nroMedidor || 'S/N';
       cajaSugerencias.classList.add('hidden');
+      inputBusqueda.value = '';
     }
-  }, 250);
-});
 
-function seleccionarSuministro(item) {
-  document.getElementById('codSuministro').value = item.codSuministro;
-  document.getElementById('nombreUsuario').value = item.nombreUsuario;
-  document.getElementById('domicilio').value = item.domicilio;
-  document.getElementById('sector').value = item.sector;
-  document.getElementById('categoria').value = item.categoria;
-  document.getElementById('nroMedidor').value = item.nroMedidor || 'S/N';
-  cajaSugerencias.classList.add('hidden');
-  inputBusqueda.value = '';
-}
+    document.getElementById('fotoInput').addEventListener('change', function() {
+      document.getElementById('fotoInputAviso').classList.toggle('hidden', this.files.length <= 2);
+    });
 
-// Avisa si seleccionaron más de 2 archivos (solo se suben los 2 primeros)
-document.getElementById('fotoInput').addEventListener('change', function() {
-  document.getElementById('fotoInputAviso').classList.toggle('hidden', this.files.length <= 2);
-});
-
-function convertFileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
-  });
-}
-
-// Subir foto general a Google Drive
-async function subirFotoDrive(file, codSuministro) {
-  const base64Str = await convertFileToBase64(file);
-  const fileName = `Tapa_${codSuministro}_${Date.now()}_${file.name}`;
-
-  const res = await fetch(GOOGLE_SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({
-      base64: base64Str,
-      fileName: fileName,
-      mimeType: file.type
-    })
-  });
-
-  const resData = await res.json();
-  return resData.status === 'success' ? resData.url : null;
-}
-
-// Formulario de Administrador para crear órdenes
-document.getElementById('registroForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-
-  const dniSeleccionado = String(document.getElementById('dniResponsableSelect').value || '').trim();
-  if (!dniSeleccionado) {
-    alert('Debes seleccionar un responsable operativo antes de guardar.');
-    return;
-  }
-  
-  const btnGuardar = document.getElementById('btnGuardar');
-  btnGuardar.disabled = true;
-  btnGuardar.textContent = "Procesando...";
-
-  let archivo1Url = null;
-  let archivo2Url = null;
-  const fotoInput = document.getElementById('fotoInput');
-
-  if (fotoInput.files.length > 0) {
-    try {
-      const codSum = document.getElementById('codSuministro').value;
-      const archivosASubir = Array.from(fotoInput.files).slice(0, 2); // máx. 2
-      // Se suben en paralelo (no uno tras otro) para no duplicar el tiempo de espera
-      const urls = await Promise.all(archivosASubir.map(f => subirFotoDrive(f, codSum)));
-      archivo1Url = urls[0] || null;
-      archivo2Url = urls[1] || null;
-    } catch (err) {
-      console.error("Error al subir archivo(s):", err);
+    function convertFileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
     }
-  }
 
-  const nuevoRegistro = {
-    codSuministro: parseInt(document.getElementById('codSuministro').value),
-    nombreUsuario: document.getElementById('nombreUsuario').value,
-    domicilio: document.getElementById('domicilio').value,
-    sector: parseInt(document.getElementById('sector').value),
-    categoria: document.getElementById('categoria').value,
-    nroMedidor: document.getElementById('nroMedidor').value,
-    fechaSolicitud: new Date().toISOString().split('T')[0],
-    motivoCambio: document.getElementById('motivoCambio').value,
-    dniResponsable: dniSeleccionado,
-    foto: archivo1Url,
-    archivo2: archivo2Url,
-    estado: 'Pendiente'
-  };
+    async function subirFotoDrive(file, codSuministro) {
+      const base64Str = await convertFileToBase64(file);
+      const fileName = `Tapa_${codSuministro}_${Date.now()}_${file.name}`;
 
-  const { error } = await db.from('registros').insert([nuevoRegistro]);
-  
-  btnGuardar.disabled = false;
-  btnGuardar.textContent = "Guardar Registro en Supabase";
+      const res = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          base64: base64Str,
+          fileName: fileName,
+          mimeType: file.type
+        })
+      });
 
-  if (!error) {
-    this.reset();
-    document.getElementById('dniResponsableSelect').selectedIndex = 0;
-    document.getElementById('fotoInputAviso').classList.add('hidden');
-    await cargarRegistrosSupabase();
-  } else {
-    alert("Error al registrar en Supabase: " + error.message);
-  }
-});
+      const resData = await res.json();
+      return resData.status === 'success' ? resData.url : null;
+    }
 
-// Subida individual de archivo (foto o documento) desde la tabla, para un slot
-// específico: 'foto' (Archivo 1) o 'archivo2' (Archivo 2). Usada por operativos y admin.
-// Al subir evidencia se asume que el trabajo quedó hecho, así que la orden pasa
-// a "Instalado" automáticamente (y se registra la fecha de ejecución si no la tenía).
-async function subirArchivoFila(idRegistro, codSuministro, campo, inputElement) {
-  if (!inputElement.files.length) return;
-  const btnLabel = inputElement.previousElementSibling;
-  const textoOriginal = btnLabel.textContent;
-  btnLabel.textContent = "Subiendo...";
-  
-  try {
-    const file = inputElement.files[0];
-    const urlDrive = await subirFotoDrive(file, codSuministro);
+    document.getElementById('registroForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
 
-    if (urlDrive) {
-      const item = cacheRegistros.find(r => r.id === idRegistro);
-      const cambios = { [campo]: urlDrive, estado: 'Instalado' };
-      if (item && !item.fechaEjecucion) {
+      const dniSeleccionado = String(document.getElementById('dniResponsableSelect').value || '').trim();
+      if (!dniSeleccionado) {
+        alert('Debes seleccionar un responsable operativo antes de guardar.');
+        return;
+      }
+      
+      const btnGuardar = document.getElementById('btnGuardar');
+      btnGuardar.disabled = true;
+      btnGuardar.textContent = "Procesando...";
+
+      let archivo1Url = null;
+      let archivo2Url = null;
+      const fotoInput = document.getElementById('fotoInput');
+
+      if (fotoInput.files.length > 0) {
+        try {
+          const codSum = document.getElementById('codSuministro').value;
+          const archivosASubir = Array.from(fotoInput.files).slice(0, 2);
+          const urls = await Promise.all(archivosASubir.map(f => subirFotoDrive(f, codSum)));
+          archivo1Url = urls[0] || null;
+          archivo2Url = urls[1] || null;
+        } catch (err) {
+          console.error("Error al subir archivo(s):", err);
+        }
+      }
+
+      const nuevoRegistro = {
+        codSuministro: parseInt(document.getElementById('codSuministro').value),
+        nombreUsuario: document.getElementById('nombreUsuario').value,
+        domicilio: document.getElementById('domicilio').value,
+        sector: parseInt(document.getElementById('sector').value),
+        categoria: document.getElementById('categoria').value,
+        nroMedidor: document.getElementById('nroMedidor').value,
+        fechaSolicitud: new Date().toISOString().split('T')[0],
+        motivoCambio: document.getElementById('motivoCambio').value,
+        dniResponsable: dniSeleccionado,
+        foto: archivo1Url,
+        archivo2: archivo2Url,
+        estado: 'Pendiente'
+      };
+
+      const { error } = await db.from('registros').insert([nuevoRegistro]);
+      
+      btnGuardar.disabled = false;
+      btnGuardar.textContent = "Guardar Registro en Supabase";
+
+      if (!error) {
+        this.reset();
+        document.getElementById('dniResponsableSelect').selectedIndex = 0;
+        document.getElementById('fotoInputAviso').classList.add('hidden');
+        await cargarRegistrosSupabase();
+      } else {
+        alert("Error al registrar en Supabase: " + error.message);
+      }
+    });
+
+    async function subirArchivoFila(idRegistro, codSuministro, campo, inputElement) {
+      if (!inputElement.files.length) return;
+      const btnLabel = inputElement.previousElementSibling;
+      const textoOriginal = btnLabel.textContent;
+      btnLabel.textContent = "Subiendo...";
+      
+      try {
+        const file = inputElement.files[0];
+        const urlDrive = await subirFotoDrive(file, codSuministro);
+
+        if (urlDrive) {
+          const item = cacheRegistros.find(r => r.id === idRegistro);
+          const cambios = { [campo]: urlDrive, estado: 'Instalado' };
+          if (item && !item.fechaEjecucion) {
+            cambios.fechaEjecucion = new Date().toISOString().split('T')[0];
+          }
+          await db.from('registros').update(cambios).eq('id', idRegistro);
+          await cargarRegistrosSupabase();
+        } else {
+          alert("Error al subir el archivo a Drive.");
+          btnLabel.textContent = textoOriginal;
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error de conexión al guardar el archivo.");
+        btnLabel.textContent = textoOriginal;
+      }
+    }
+
+    async function reasignarResponsable(idRegistro, nuevoDni) {
+      const dni = String(nuevoDni || '').trim();
+      if (!dni) return;
+      await db.from('registros').update({ dniResponsable: dni }).eq('id', idRegistro);
+      await cargarRegistrosSupabase();
+    }
+
+    function esRolOperativo() {
+      return usuarioActual && ['operativo', 'operador', 'tecnico', 'técnico'].includes(usuarioActual.rol.toLowerCase());
+    }
+
+    function mostrarEstadoCarga(cargando) {
+      const indicador = document.getElementById('cargaIndicador');
+      if (indicador) indicador.classList.toggle('hidden', !cargando);
+    }
+
+    function mostrarErrorCarga(mensaje) {
+      const errorBox = document.getElementById('cargaError');
+      if (!errorBox) return;
+      if (mensaje) {
+        errorBox.textContent = `⚠️ No se pudo cargar el listado: ${mensaje}. Reintentando...`;
+        errorBox.classList.remove('hidden');
+      } else {
+        errorBox.classList.add('hidden');
+      }
+    }
+
+    // Trae TODOS los registros que le corresponden al usuario, sin recortar nada,
+    // paginando internamente de a 1000 filas (el límite duro de Supabase por consulta)
+    // hasta juntar la tabla completa.
+    async function obtenerTodosLosRegistros() {
+      let todos = [];
+      let desde = 0;
+      let quedanFilas = true;
+
+      while (quedanFilas) {
+        let query = db
+          .from('registros')
+          .select('*')
+          .order('id', { ascending: false })
+          .range(desde, desde + TAMANO_PAGINA - 1);
+
+        if (esRolOperativo()) {
+          query = query.eq('dniResponsable', usuarioActual.dni);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        todos = todos.concat(data || []);
+
+        if (!data || data.length < TAMANO_PAGINA) {
+          quedanFilas = false;
+        } else {
+          desde += TAMANO_PAGINA;
+        }
+      }
+
+      return todos;
+    }
+
+    async function cargarRegistrosSupabase() {
+      if (cargaEnCurso) { recargaPendiente = true; return; }
+      cargaEnCurso = true;
+      mostrarEstadoCarga(true);
+
+      try {
+        const data = await obtenerTodosLosRegistros();
+        cacheRegistros = data;
+        mostrarErrorCarga(null);
+        renderTablaDesdeCache();
+      } catch (error) {
+        console.error('Error al cargar registros:', error.message || error);
+        mostrarErrorCarga(error.message || 'error desconocido');
+        setTimeout(() => { if (usuarioActual) cargarRegistrosSupabase(); }, 3000);
+      } finally {
+        mostrarEstadoCarga(false);
+        cargaEnCurso = false;
+        if (recargaPendiente) {
+          recargaPendiente = false;
+          cargarRegistrosSupabase();
+        }
+      }
+    }
+
+    function widgetArchivo(item, url, campo, etiqueta) {
+      if (url) {
+        return `<div class="flex flex-col items-center gap-0.5">
+          <a href="${url}" target="_blank" class="text-cyan-400 underline font-medium">${etiqueta}</a>
+          <label class="cursor-pointer text-[10px] text-slate-400 hover:text-white underline">
+            <span>Cambiar</span>
+            <input type="file" accept="image/*,.pdf,.doc,.docx" class="hidden" onchange="subirArchivoFila(${item.id}, ${item.codSuministro}, '${campo}', this)">
+          </label>
+        </div>`;
+      }
+      return `<label class="cursor-pointer bg-slate-700 hover:bg-slate-600 text-cyan-300 px-2 py-1 rounded text-[10px] font-semibold transition inline-block">
+        <span>📎 Subir ${etiqueta}</span>
+        <input type="file" accept="image/*,.pdf,.doc,.docx" class="hidden" onchange="subirArchivoFila(${item.id}, ${item.codSuministro}, '${campo}', this)">
+      </label>`;
+    }
+
+    function renderTablaDesdeCache() {
+      const filtro = document.getElementById('filtroEstado').value;
+      const tbody = document.getElementById('tablaRegistros');
+
+      let pend = 0, proc = 0, inst = 0;
+      cacheRegistros.forEach(r => {
+        if (r.estado === 'Pendiente') pend++;
+        if (r.estado === 'En Proceso') proc++;
+        if (r.estado === 'Instalado') inst++;
+      });
+
+      const filaAdmin = !esRolOperativo();
+      const registrosAMostrar = filtro === 'TODOS'
+        ? cacheRegistros
+        : cacheRegistros.filter(r => r.estado === filtro);
+
+      const filasHtml = registrosAMostrar.map(item => {
+        const resp = listaResponsables.find(r => String(r.dni).trim() === String(item.dniResponsable).trim());
+        const respNombre = resp ? resp.nombre : item.dniResponsable;
+
+        const celdaFoto = `<div class="flex flex-col items-center gap-2">
+          ${widgetArchivo(item, item.foto, 'foto', 'Archivo 1')}
+          ${widgetArchivo(item, item.archivo2, 'archivo2', 'Archivo 2')}
+        </div>`;
+
+        const fechaRegistro = item.fechaSolicitud || '—';
+        const fechaEjecucion = item.fechaEjecucion || '—';
+
+        const selectReasignar = filaAdmin ? `
+          <select onchange="reasignarResponsable(${item.id}, this.value)" class="bg-slate-900 border border-slate-700 text-[10px] text-slate-200 rounded px-1.5 py-0.5 mt-1 w-full">
+            ${listaResponsables.map(r => `<option value="${String(r.dni).trim()}" ${String(r.dni).trim()===String(item.dniResponsable).trim()?'selected':''}>${r.nombre}</option>`).join('')}
+          </select>` : '';
+
+        return `
+          <tr class="hover:bg-slate-700/30 transition">
+            <td class="p-3 font-bold text-sky-400">${item.codSuministro}</td>
+            <td class="p-3">
+              <p class="font-medium text-slate-100">${item.nombreUsuario}</p>
+              <p class="text-[10px] text-slate-400">${item.domicilio}</p>
+            </td>
+            <td class="p-3">Sector ${item.sector}</td>
+            <td class="p-3">${item.motivoCambio}</td>
+            <td class="p-3 text-[11px] font-medium text-slate-200">
+              ${respNombre}
+              ${selectReasignar}
+            </td>
+            <td class="p-3 text-center text-[11px] text-slate-300">${fechaRegistro}</td>
+            <td class="p-3 text-center text-[11px] text-slate-300">${fechaEjecucion}</td>
+            <td class="p-3 text-center text-[11px]">${celdaFoto}</td>
+            <td class="p-3 text-center">
+              <span class="px-2 py-1 rounded-full text-[10px] font-bold ${
+                item.estado === 'Pendiente' ? 'bg-amber-900/60 text-amber-300 border border-amber-700' :
+                item.estado === 'En Proceso' ? 'bg-blue-900/60 text-blue-300 border border-blue-700' :
+                'bg-emerald-900/60 text-emerald-300 border border-emerald-700'
+              }">${item.estado}</span>
+            </td>
+            <td class="p-3 text-center">
+              <select onchange="cambiarEstadoSupabase(${item.id}, this.value)" class="bg-slate-900 border border-slate-700 text-[11px] text-slate-200 rounded px-1.5 py-1">
+                <option value="Pendiente" ${item.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                <option value="En Proceso" ${item.estado === 'En Proceso' ? 'selected' : ''}>En Proceso</option>
+                <option value="Instalado" ${item.estado === 'Instalado' ? 'selected' : ''}>Instalado</option>
+              </select>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      tbody.innerHTML = filasHtml;
+
+      document.getElementById('kpiTotal').textContent = cacheRegistros.length;
+      document.getElementById('kpiPendientes').textContent = pend;
+      document.getElementById('kpiProceso').textContent = proc;
+      document.getElementById('kpiInstalados').textContent = inst;
+
+      actualizarGraficoCargaVsInstalado();
+    }
+
+    async function cambiarEstadoSupabase(id, nuevoEstado) {
+      const cambios = { estado: nuevoEstado };
+
+      const item = cacheRegistros.find(r => r.id === id);
+      if (nuevoEstado !== 'Pendiente' && item && !item.fechaEjecucion) {
         cambios.fechaEjecucion = new Date().toISOString().split('T')[0];
       }
-      await db.from('registros').update(cambios).eq('id', idRegistro);
+
+      await db.from('registros').update(cambios).eq('id', id);
       await cargarRegistrosSupabase();
-    } else {
-      alert("Error al subir el archivo a Drive.");
-      btnLabel.textContent = textoOriginal;
     }
-  } catch (err) {
-    console.error(err);
-    alert("Error de conexión al guardar el archivo.");
-    btnLabel.textContent = textoOriginal;
-  }
-}
 
-// Reasignar responsable de una orden ya creada (solo admin la ve en pantalla)
-async function reasignarResponsable(idRegistro, nuevoDni) {
-  const dni = String(nuevoDni || '').trim();
-  if (!dni) return;
-  await db.from('registros').update({ dniResponsable: dni }).eq('id', idRegistro);
-  await cargarRegistrosSupabase();
-}
-
-function esRolOperativo() {
-  return usuarioActual && ['operativo', 'operador', 'tecnico', 'técnico'].includes(usuarioActual.rol.toLowerCase());
-}
-
-// Trae SOLO una vez todos los registros que le corresponden al usuario (según su rol)
-// y calcula métricas + tabla desde esa misma copia en memoria, sin una segunda consulta.
-// Si ya hay una carga en curso (por ejemplo, tu propia acción y el eco de Realtime casi
-// al mismo tiempo), NO se dispara una consulta duplicada: se marca "pendiente" y se
-// ejecuta una sola vez más apenas termine la que está en curso.
-async function cargarRegistrosSupabase() {
-  if (cargaEnCurso) { recargaPendiente = true; return; }
-  cargaEnCurso = true;
-
-  let query = db.from('registros').select('*').order('id', { ascending: false });
-
-  if (esRolOperativo()) {
-    query = query.eq('dniResponsable', usuarioActual.dni);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    console.error('Error al cargar registros:', error.message);
-  } else {
-    cacheRegistros = data || [];
-    renderTablaDesdeCache();
-  }
-
-  cargaEnCurso = false;
-  if (recargaPendiente) {
-    recargaPendiente = false;
-    cargarRegistrosSupabase();
-  }
-}
-
-// Widget de un slot de archivo (1 o 2): link "Ver" + "Cambiar" si ya existe,
-// o botón "Subir" si el slot está vacío. Se define UNA sola vez (antes se
-// recreaba en cada fila de la tabla, sin necesidad).
-function widgetArchivo(item, url, campo, etiqueta) {
-  if (url) {
-    return `<div class="flex flex-col items-center gap-0.5">
-      <a href="${url}" target="_blank" class="text-cyan-400 underline font-medium">${etiqueta}</a>
-      <label class="cursor-pointer text-[10px] text-slate-400 hover:text-white underline">
-        <span>Cambiar</span>
-        <input type="file" accept="image/*,.pdf,.doc,.docx" class="hidden" onchange="subirArchivoFila(${item.id}, ${item.codSuministro}, '${campo}', this)">
-      </label>
-    </div>`;
-  }
-  return `<label class="cursor-pointer bg-slate-700 hover:bg-slate-600 text-cyan-300 px-2 py-1 rounded text-[10px] font-semibold transition inline-block">
-    <span>📎 Subir ${etiqueta}</span>
-    <input type="file" accept="image/*,.pdf,.doc,.docx" class="hidden" onchange="subirArchivoFila(${item.id}, ${item.codSuministro}, '${campo}', this)">
-  </label>`;
-}
-
-// Renderiza tabla + KPIs + gráfico a partir de cacheRegistros, aplicando el filtro de estado
-// localmente (no vuelve a golpear la base de datos, por eso es instantáneo).
-function renderTablaDesdeCache() {
-  const filtro = document.getElementById('filtroEstado').value;
-  const tbody = document.getElementById('tablaRegistros');
-  tbody.innerHTML = '';
-
-  let pend = 0, proc = 0, inst = 0;
-  cacheRegistros.forEach(r => {
-    if (r.estado === 'Pendiente') pend++;
-    if (r.estado === 'En Proceso') proc++;
-    if (r.estado === 'Instalado') inst++;
-  });
-
-  const filaAdmin = !esRolOperativo();
-  const registrosAMostrar = filtro === 'TODOS'
-    ? cacheRegistros
-    : cacheRegistros.filter(r => r.estado === filtro);
-
-  registrosAMostrar.forEach(item => {
-    const resp = listaResponsables.find(r => String(r.dni).trim() === String(item.dniResponsable).trim());
-    const respNombre = resp ? resp.nombre : item.dniResponsable;
-
-    const celdaFoto = `<div class="flex flex-col items-center gap-2">
-      ${widgetArchivo(item, item.foto, 'foto', 'Archivo 1')}
-      ${widgetArchivo(item, item.archivo2, 'archivo2', 'Archivo 2')}
-    </div>`;
-
-    const fechaRegistro = item.fechaSolicitud || '—';
-    const fechaEjecucion = item.fechaEjecucion || '—';
-
-    const selectReasignar = filaAdmin ? `
-      <select onchange="reasignarResponsable(${item.id}, this.value)" class="bg-slate-900 border border-slate-700 text-[10px] text-slate-200 rounded px-1.5 py-0.5 mt-1 w-full">
-        ${listaResponsables.map(r => `<option value="${String(r.dni).trim()}" ${String(r.dni).trim()===String(item.dniResponsable).trim()?'selected':''}>${r.nombre}</option>`).join('')}
-      </select>` : '';
-
-    const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-700/30 transition";
-    tr.innerHTML = `
-      <td class="p-3 font-bold text-sky-400">${item.codSuministro}</td>
-      <td class="p-3">
-        <p class="font-medium text-slate-100">${item.nombreUsuario}</p>
-        <p class="text-[10px] text-slate-400">${item.domicilio}</p>
-      </td>
-      <td class="p-3">Sector ${item.sector}</td>
-      <td class="p-3">${item.motivoCambio}</td>
-      <td class="p-3 text-[11px] font-medium text-slate-200">
-        ${respNombre}
-        ${selectReasignar}
-      </td>
-      <td class="p-3 text-center text-[11px] text-slate-300">${fechaRegistro}</td>
-      <td class="p-3 text-center text-[11px] text-slate-300">${fechaEjecucion}</td>
-      <td class="p-3 text-center text-[11px]">${celdaFoto}</td>
-      <td class="p-3 text-center">
-        <span class="px-2 py-1 rounded-full text-[10px] font-bold ${
-          item.estado === 'Pendiente' ? 'bg-amber-900/60 text-amber-300 border border-amber-700' :
-          item.estado === 'En Proceso' ? 'bg-blue-900/60 text-blue-300 border border-blue-700' :
-          'bg-emerald-900/60 text-emerald-300 border border-emerald-700'
-        }">${item.estado}</span>
-      </td>
-      <td class="p-3 text-center">
-        <select onchange="cambiarEstadoSupabase(${item.id}, this.value)" class="bg-slate-900 border border-slate-700 text-[11px] text-slate-200 rounded px-1.5 py-1">
-          <option value="Pendiente" ${item.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-          <option value="En Proceso" ${item.estado === 'En Proceso' ? 'selected' : ''}>En Proceso</option>
-          <option value="Instalado" ${item.estado === 'Instalado' ? 'selected' : ''}>Instalado</option>
-        </select>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  document.getElementById('kpiTotal').textContent = cacheRegistros.length;
-  document.getElementById('kpiPendientes').textContent = pend;
-  document.getElementById('kpiProceso').textContent = proc;
-  document.getElementById('kpiInstalados').textContent = inst;
-
-  actualizarGraficoCargaVsInstalado();
-}
-
-async function cambiarEstadoSupabase(id, nuevoEstado) {
-  const cambios = { estado: nuevoEstado };
-
-  // La primera vez que la orden sale de "Pendiente" (se empieza a trabajar),
-  // se registra automáticamente la fecha de ejecución, sin pedirla manualmente.
-  const item = cacheRegistros.find(r => r.id === id);
-  if (nuevoEstado !== 'Pendiente' && item && !item.fechaEjecucion) {
-    cambios.fechaEjecucion = new Date().toISOString().split('T')[0];
-  }
-
-  await db.from('registros').update(cambios).eq('id', id);
-  await cargarRegistrosSupabase();
-}
-
-function initChart() {
-  const ctx = document.getElementById('estadoChart').getContext('2d');
-  chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: [],
-      datasets: [
-        { label: 'Asignadas (emitido)', data: [], backgroundColor: '#38bdf8' },
-        { label: 'Instaladas (realizado)', data: [], backgroundColor: '#10b981' }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: true, labels: { color: '#cbd5e1' } } },
-      scales: {
-        y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: '#334155' } },
-        x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
-      }
+    function initChart() {
+      const ctx = document.getElementById('estadoChart').getContext('2d');
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: [],
+          datasets: [
+            { label: 'Asignadas (emitido)', data: [], backgroundColor: '#38bdf8' },
+            { label: 'Instaladas (realizado)', data: [], backgroundColor: '#10b981' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: true, labels: { color: '#cbd5e1' } } },
+          scales: {
+            y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: '#334155' } },
+            x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+          }
+        }
+      });
     }
-  });
-}
 
-// Agrupa cacheRegistros por responsable y compara cuánto se le emitió (asignó)
-// contra cuánto ya está en estado "Instalado" — la carga de trabajo vs. lo realizado.
-function actualizarGraficoCargaVsInstalado() {
-  if (!chartInstance) return;
+    function actualizarGraficoCargaVsInstalado() {
+      if (!chartInstance) return;
 
-  const porResponsable = {};
-  listaResponsables.forEach(r => {
-    porResponsable[String(r.dni).trim()] = { nombre: r.nombre, asignadas: 0, instaladas: 0 };
-  });
+      const porResponsable = {};
+      listaResponsables.forEach(r => {
+        porResponsable[String(r.dni).trim()] = { nombre: r.nombre, asignadas: 0, instaladas: 0 };
+      });
 
-  cacheRegistros.forEach(item => {
-    const key = String(item.dniResponsable).trim();
-    if (!porResponsable[key]) {
-      porResponsable[key] = { nombre: key, asignadas: 0, instaladas: 0 };
+      cacheRegistros.forEach(item => {
+        const key = String(item.dniResponsable).trim();
+        if (!porResponsable[key]) {
+          porResponsable[key] = { nombre: key, asignadas: 0, instaladas: 0 };
+        }
+        porResponsable[key].asignadas++;
+        if (item.estado === 'Instalado') porResponsable[key].instaladas++;
+      });
+
+      const entradas = Object.values(porResponsable).filter(p => p.asignadas > 0);
+
+      chartInstance.data.labels = entradas.map(p => p.nombre);
+      chartInstance.data.datasets[0].data = entradas.map(p => p.asignadas);
+      chartInstance.data.datasets[1].data = entradas.map(p => p.instaladas);
+      chartInstance.update();
     }
-    porResponsable[key].asignadas++;
-    if (item.estado === 'Instalado') porResponsable[key].instaladas++;
-  });
 
-  const entradas = Object.values(porResponsable).filter(p => p.asignadas > 0);
+    function iniciarActualizacionEnVivo() {
+      if (realtimeChannel) return;
 
-  chartInstance.data.labels = entradas.map(p => p.nombre);
-  chartInstance.data.datasets[0].data = entradas.map(p => p.asignadas);
-  chartInstance.data.datasets[1].data = entradas.map(p => p.instaladas);
-  chartInstance.update();
-}
+      realtimeChannel = db
+        .channel('registros-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => {
+          clearTimeout(debounceRealtime);
+          debounceRealtime = setTimeout(() => cargarRegistrosSupabase(), 600);
+        })
+        .subscribe();
 
-// Actualización automática: se suscribe a cambios en tiempo real de la tabla "registros"
-// (inserts, updates, deletes) para que la tabla y los KPIs se refresquen solos, sin recargar
-// la página. Si por algún motivo el canal se cae, hay un respaldo con polling cada 20s.
-function iniciarActualizacionEnVivo() {
-  if (realtimeChannel) return;
-
-  realtimeChannel = db
-    .channel('registros-live')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' }, () => {
-      cargarRegistrosSupabase();
-    })
-    .subscribe();
-
-  // Respaldo por si el realtime no está habilitado en el proyecto de Supabase
-  setInterval(() => {
-    if (usuarioActual) cargarRegistrosSupabase();
-  }, 20000);
-}
+      setInterval(() => {
+        if (usuarioActual) cargarRegistrosSupabase();
+      }, 20000);
+    }
+  </script>
+</body>
+</html>
