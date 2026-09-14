@@ -30,7 +30,7 @@
       <div class="p-6 space-y-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Ingrese su número de DNI</label>
-          <input type="number" id="dniInput" placeholder="Ej: 72760364 o 78182456" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium">
+          <input type="number" id="dniInput" placeholder="Ej: 72760364 o 70145269" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none font-medium">
         </div>
         
         <div id="loginError" class="hidden text-xs text-red-600 font-medium bg-red-50 p-2.5 rounded-lg border border-red-200 text-center">
@@ -96,7 +96,7 @@
       <!-- FORMULARIO & GRAFICO -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- FORMULARIO REGISTRO (Solo visible para administradores) -->
+        <!-- FORMULARIO REGISTRO (Solo visible para Administradores) -->
         <div id="formContainer" class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-white space-y-4">
           <h2 class="text-md font-bold text-slate-100 border-b border-slate-700 pb-2 flex items-center justify-between">
             <span>📝 Registrar Orden de Instalación</span>
@@ -222,7 +222,6 @@
   </div>
 
   <script>
-    // CREDENCIALES CONFIGURADAS
     const SUPABASE_URL = 'https://utiqpzprvjuetcmmtouf.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_zPmCLXrSPTJUsrludHTdng_Lddn-Hym';
     const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx0yR0csqgwDiB0iQgOB8hI_UDmW-UN4TISiRFCyib2o0m0s6CGbZb1AXrR7P0-odsuKw/exec';
@@ -233,9 +232,8 @@
     let chartInstance = null;
     let listaResponsables = [];
 
-    // VALIDACIÓN DE USUARIO POR DNI (TABLA RESPONSABLES)
     async function validarDNI() {
-      const dniInput = document.getElementById('dniInput').value;
+      const dniInput = document.getElementById('dniInput').value.trim();
       const errorMsg = document.getElementById('loginError');
       errorMsg.classList.add('hidden');
 
@@ -244,7 +242,7 @@
       const { data, error } = await db
         .from('responsables')
         .select('*')
-        .eq('dni', parseInt(dniInput))
+        .eq('dni', dniInput)
         .single();
 
       if (data && !error) {
@@ -257,11 +255,13 @@
         const formContainer = document.getElementById('formContainer');
         const chartContainer = document.getElementById('chartContainer');
 
-        if (data.rol.toLowerCase() === 'operativo' || data.rol.toLowerCase() === 'operador') {
+        const esOperativo = ['operativo', 'operador', 'tecnico', 'técnico'].includes(data.rol.toLowerCase());
+
+        if (esOperativo) {
           formContainer.classList.add('hidden');
           chartContainer.classList.remove('lg:col-span-2');
           chartContainer.classList.add('lg:col-span-3');
-          document.getElementById('tituloTabla').textContent = `📋 Mi Carga de Trabajo Asignada (${data.nombre})`;
+          document.getElementById('tituloTabla').textContent = `📋 Mi Carga Asignada (${data.nombre})`;
         } else {
           formContainer.classList.remove('hidden');
           chartContainer.classList.remove('lg:col-span-3');
@@ -299,7 +299,6 @@
       }
     }
 
-    // BÚSQUEDA EN PADRÓN
     const inputBusqueda = document.getElementById('busquedaSuministro');
     const cajaSugerencias = document.getElementById('sugerenciasSuministro');
     let timeoutBusqueda = null;
@@ -393,6 +392,7 @@
         }
       }
 
+      // SE MANTIENE EL CAMPO 'foto' SEGÚN TU TABLA DE SUPABASE
       const nuevoRegistro = {
         codSuministro: parseInt(document.getElementById('codSuministro').value),
         nombreUsuario: document.getElementById('nombreUsuario').value,
@@ -402,7 +402,7 @@
         nroMedidor: document.getElementById('nroMedidor').value,
         fechaSolicitud: new Date().toISOString().split('T')[0],
         motivoCambio: document.getElementById('motivoCambio').value,
-        dniResponsable: parseInt(document.getElementById('dniResponsableSelect').value),
+        dniResponsable: String(document.getElementById('dniResponsableSelect').value),
         foto: fotoDriveUrl,
         estado: 'Pendiente'
       };
@@ -420,7 +420,6 @@
       }
     });
 
-    // CARGA DE REGISTROS SEGÚN ROL Y DNI
     async function cargarRegistrosSupabase() {
       const filtro = document.getElementById('filtroEstado').value;
       let query = db.from('registros').select('*');
@@ -429,9 +428,11 @@
         query = query.eq('estado', filtro);
       }
 
-      // Si es rol operativo/operador, filtra únicamente su asignación
-      if (usuarioActual && (usuarioActual.rol.toLowerCase() === 'operativo' || usuarioActual.rol.toLowerCase() === 'operador')) {
-        query = query.eq('dniResponsable', usuarioActual.dni);
+      const esOperativo = usuarioActual && ['operativo', 'operador', 'tecnico', 'técnico'].includes(usuarioActual.rol.toLowerCase());
+
+      // Si es operativo/técnico, filtra SOLO los registros asignados a su DNI
+      if (esOperativo) {
+        query = query.eq('dniResponsable', String(usuarioActual.dni));
       }
 
       const { data: registros, error } = await query;
@@ -442,10 +443,9 @@
 
       let pend = 0, proc = 0, inst = 0;
 
-      // Cálculo de métricas según rol
       let queryMetricas = db.from('registros').select('estado, dniResponsable');
-      if (usuarioActual && (usuarioActual.rol.toLowerCase() === 'operativo' || usuarioActual.rol.toLowerCase() === 'operador')) {
-        queryMetricas = queryMetricas.eq('dniResponsable', usuarioActual.dni);
+      if (esOperativo) {
+        queryMetricas = queryMetricas.eq('dniResponsable', String(usuarioActual.dni));
       }
       
       const { data: todos } = await queryMetricas;
@@ -458,7 +458,7 @@
       }
 
       registros.forEach(item => {
-        const resp = listaResponsables.find(r => r.dni === item.dniResponsable);
+        const resp = listaResponsables.find(r => String(r.dni) === String(item.dniResponsable));
         const respNombre = resp ? resp.nombre : item.dniResponsable;
         const urlImagen = item.foto || item.foto_url;
         const enlaceFoto = urlImagen 
