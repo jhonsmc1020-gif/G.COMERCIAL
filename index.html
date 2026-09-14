@@ -426,8 +426,10 @@
         try {
           const codSum = document.getElementById('codSuministro').value;
           const archivosASubir = Array.from(fotoInput.files).slice(0, 2); // máx. 2
-          if (archivosASubir[0]) archivo1Url = await subirFotoDrive(archivosASubir[0], codSum);
-          if (archivosASubir[1]) archivo2Url = await subirFotoDrive(archivosASubir[1], codSum);
+          // Se suben en paralelo (no uno tras otro) para no duplicar el tiempo de espera
+          const urls = await Promise.all(archivosASubir.map(f => subirFotoDrive(f, codSum)));
+          archivo1Url = urls[0] || null;
+          archivo2Url = urls[1] || null;
         } catch (err) {
           console.error("Error al subir archivo(s):", err);
         }
