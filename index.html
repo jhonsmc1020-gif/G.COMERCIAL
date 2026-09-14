@@ -105,6 +105,11 @@
             </select>
           </div>
 
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Plazo para ejecutar (días):</label>
+            <input type="number" id="regPlazoDias" placeholder="3" min="1" value="3" class="w-full border p-2.5 rounded-lg text-sm font-semibold outline-none focus:border-cyan-600">
+          </div>
+
           <input type="text" id="regMotivo" placeholder="Motivo de cambio (Opcional)" class="w-full border p-2.5 rounded-lg text-sm">
           
           <button type="button" id="btnGuardar" onclick="guardarRegistro()" class="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold text-sm shadow-md shadow-emerald-600/20 hover:bg-emerald-700 transition">
@@ -221,7 +226,8 @@
         accion: 'crearRegistro',
         codSuministro: cod,
         dniResponsable: resp,
-        motivoCambio: document.getElementById('regMotivo').value
+        motivoCambio: document.getElementById('regMotivo').value,
+        plazoDias: document.getElementById('regPlazoDias').value || 3
       };
 
       try {
@@ -235,6 +241,7 @@
           document.getElementById('regCategoria').value = '';
           document.getElementById('regMedidor').value = '';
           document.getElementById('regMotivo').value = '';
+          document.getElementById('regPlazoDias').value = '3';
           login();
         }
       } catch (err) {
@@ -242,6 +249,51 @@
       } finally {
         btn.innerText = 'Guardar y Asignar Trabajo';
         btn.disabled = false;
+      }
+    }
+
+    // Convierte "dd/MM/yyyy" en un objeto Date
+    function parseFechaDDMMYYYY(str) {
+      if (!str) return null;
+      const partes = String(str).split('/');
+      if (partes.length !== 3) return null;
+      return new Date(parseInt(partes[2], 10), parseInt(partes[1], 10) - 1, parseInt(partes[0], 10));
+    }
+
+    function diasEntre(fechaA, fechaB) {
+      const msPorDia = 1000 * 60 * 60 * 24;
+      return Math.round((fechaB - fechaA) / msPorDia);
+    }
+
+    // Devuelve un badge HTML con el estado de cumplimiento del plazo
+    function calcularCumplimiento(reg) {
+      const fechaAsignacion = parseFechaDDMMYYYY(reg.fechaSolicitud);
+      const plazo = parseInt(reg.plazoDias, 10) || 3;
+      if (!fechaAsignacion) return '';
+
+      const fechaLimite = new Date(fechaAsignacion);
+      fechaLimite.setDate(fechaLimite.getDate() + plazo);
+
+      if (reg.estado === 'Pendiente') {
+        const hoy = new Date();
+        const diasRestantes = diasEntre(hoy, fechaLimite);
+        if (diasRestantes < 0) {
+          return `<span class="text-[10px] bg-red-100 text-red-800 border border-red-200 px-2 py-0.5 rounded-md font-bold">⚠️ Vencido hace ${Math.abs(diasRestantes)} día(s)</span>`;
+        } else if (diasRestantes === 0) {
+          return `<span class="text-[10px] bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md font-bold">🕐 Vence hoy</span>`;
+        } else {
+          return `<span class="text-[10px] bg-sky-100 text-sky-800 border border-sky-200 px-2 py-0.5 rounded-md font-bold">🕐 Quedan ${diasRestantes} día(s)</span>`;
+        }
+      } else {
+        const fechaEjecucion = parseFechaDDMMYYYY(reg.fechaEjecucion);
+        if (!fechaEjecucion) return '';
+        const diasUsados = diasEntre(fechaAsignacion, fechaEjecucion);
+        if (fechaEjecucion <= fechaLimite) {
+          return `<span class="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold">✅ Cumplido en ${diasUsados} día(s) (plazo: ${plazo})</span>`;
+        } else {
+          const diasTarde = diasEntre(fechaLimite, fechaEjecucion);
+          return `<span class="text-[10px] bg-red-100 text-red-800 border border-red-200 px-2 py-0.5 rounded-md font-bold">⚠️ Fuera de plazo por ${diasTarde} día(s)</span>`;
+        }
       }
     }
 
@@ -269,6 +321,8 @@
                 <span class="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md font-bold">Categ.: ${reg.categoria || 'S/N'}</span>
                 <span class="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md font-bold">Medidor: ${reg.nroMedidor || 'S/N'}</span>
               </div>
+              <p class="text-[11px] text-slate-500 mt-1.5">Asignado: <span class="font-semibold text-slate-700">${reg.fechaSolicitud || '-'}</span></p>
+              <div class="mt-1">${calcularCumplimiento(reg)}</div>
             </div>
             <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-md font-bold ${esPendiente ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'}">${reg.estado}</span>
           </div>
@@ -285,6 +339,7 @@
           ` : `
             <div class="border-t border-slate-200 pt-2 text-xs text-slate-600 space-y-1">
               <p><span class="font-semibold">Ejecutado el:</span> ${reg.fechaEjecucion}</p>
+              <p><span class="font-semibold">Plazo asignado:</span> ${reg.plazoDias} día(s)</p>
               ${reg.evidencias && reg.evidencias.length > 0 ? `
                 <div class="flex gap-2 flex-wrap">
                   ${reg.evidencias.map(e => `<a href="${e.url}" target="_blank" class="text-blue-600 font-bold underline">${e.tipo}</a>`).join(' | ')}
