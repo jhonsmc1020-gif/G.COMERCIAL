@@ -584,7 +584,7 @@
       const { error } = await db.from('registros').insert([nuevoRegistro]);
 
       btnGuardar.disabled = false;
-      btnGuardar.textContent = "Guardar Registro en Supabase";
+      btnGuardar.textContent = "Guardar Registro";
 
       if (!error) {
         this.reset();
