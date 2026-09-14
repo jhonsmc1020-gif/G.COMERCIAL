@@ -38,7 +38,7 @@
           DNI no registrado en la tabla "responsables". Contacte al administrador.
         </div>
 
-        <button onclick="validarDNI()" class="w-full py-2.5 bg-sky-700 hover:bg-sky-800 text-white font-semibold rounded-lg shadow-md transition-all text-sm">
+        <button id="btnIngresar" onclick="validarDNI()" class="w-full py-2.5 bg-sky-700 hover:bg-sky-800 text-white font-semibold rounded-lg shadow-md transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed">
           Ingresar al Sistema
         </button>
       </div>
@@ -247,21 +247,42 @@
     let cargaEnCurso = false;     // evita disparar 2 consultas a la vez (ej: tu propia acción + el eco de Realtime)
     let recargaPendiente = false;
     let debounceRealtime = null;  // agrupa varios cambios seguidos (de varios operativos) en una sola recarga
+    let loginEnCurso = false;     // evita que varios clics en "Ingresar" disparen validarDNI() en paralelo
 
     const TAMANO_PAGINA = 1000;   // Supabase corta cada consulta en 1000 filas por defecto, aunque no pidas límite
 
     async function validarDNI() {
+      // Si ya hay un login en curso (por ejemplo, el usuario hizo 2-3 clics seguidos
+      // mientras la red iba lenta), se ignora el clic extra. Antes, cada clic corría
+      // TODA la función desde cero: validaba el DNI otra vez, volvía a pedir la lista
+      // de responsables y el listado completo de registros — multiplicando por 3 o 4
+      // el trabajo y haciendo que todas esas consultas compitieran entre sí por la
+      // misma conexión, lo que hacía que TODO se sintiera mucho más lento.
+      if (loginEnCurso) return;
+
+      const btnIngresar = document.getElementById('btnIngresar');
       const dniInputRaw = document.getElementById('dniInput').value.trim();
       const errorMsg = document.getElementById('loginError');
       errorMsg.classList.add('hidden');
 
       if (!dniInputRaw) return;
 
-      const { data, error } = await db
-        .from('responsables')
-        .select('*')
-        .eq('dni', dniInputRaw)
-        .single();
+      loginEnCurso = true;
+      if (btnIngresar) {
+        btnIngresar.disabled = true;
+        btnIngresar.textContent = 'Verificando...';
+      }
+
+      let data, error;
+      try {
+        ({ data, error } = await db
+          .from('responsables')
+          .select('*')
+          .eq('dni', dniInputRaw)
+          .single());
+      } catch (e) {
+        error = e;
+      }
 
       if (data && !error) {
         usuarioActual = data;
