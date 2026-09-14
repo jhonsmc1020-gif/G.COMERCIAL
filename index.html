@@ -6,7 +6,6 @@
   <title>EPS EMAPA HUARAL S.A. - Control de Instalación de Tapas</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-  <!-- SDK oficial de Supabase via CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     input[type=number]::-webkit-inner-spin-button, 
@@ -96,7 +95,7 @@
       <!-- FORMULARIO & GRAFICO -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- FORMULARIO REGISTRO (Solo visible para Administradores) -->
+        <!-- FORMULARIO REGISTRO (Solo visible para Administrador) -->
         <div id="formContainer" class="bg-slate-800 rounded-xl p-5 border border-slate-700 text-white space-y-4">
           <h2 class="text-md font-bold text-slate-100 border-b border-slate-700 pb-2 flex items-center justify-between">
             <span>📝 Registrar Orden de Instalación</span>
@@ -155,7 +154,7 @@
             </div>
 
             <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Adjuntar Fotografía Evidencia (Google Drive)</label>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Adjuntar Fotografía Inicial (Google Drive)</label>
               <input type="file" id="fotoInput" accept="image/*" class="w-full text-xs text-slate-300 bg-slate-900 border border-slate-700 rounded-lg p-1.5 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-sky-600 file:text-white hover:file:bg-sky-500">
             </div>
 
@@ -206,7 +205,7 @@
                 <th class="p-3">Sector</th>
                 <th class="p-3">Motivo</th>
                 <th class="p-3">Responsable</th>
-                <th class="p-3 text-center">Foto Drive</th>
+                <th class="p-3 text-center">Foto / Evidencia</th>
                 <th class="p-3 text-center">Estado</th>
                 <th class="p-3 text-center">Acciones</th>
               </tr>
@@ -356,6 +355,26 @@
       });
     }
 
+    // Subir foto general a Google Drive
+    async function subirFotoDrive(file, codSuministro) {
+      const base64Str = await convertFileToBase64(file);
+      const fileName = `Tapa_${codSuministro}_${Date.now()}_${file.name}`;
+
+      const res = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          base64: base64Str,
+          fileName: fileName,
+          mimeType: file.type
+        })
+      });
+
+      const resData = await res.json();
+      return resData.status === 'success' ? resData.url : null;
+    }
+
+    // Formulario de Administrador para crear órdenes
     document.getElementById('registroForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       
@@ -368,31 +387,13 @@
       
       if (fotoInput.files.length > 0) {
         try {
-          const file = fotoInput.files[0];
-          const base64Str = await convertFileToBase64(file);
           const codSum = document.getElementById('codSuministro').value;
-          const fileName = `Tapa_${codSum}_${Date.now()}_${file.name}`;
-
-          const res = await fetch(GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              base64: base64Str,
-              fileName: fileName,
-              mimeType: file.type
-            })
-          });
-
-          const resData = await res.json();
-          if (resData.status === 'success') {
-            fotoDriveUrl = resData.url;
-          }
+          fotoDriveUrl = await subirFotoDrive(fotoInput.files[0], codSum);
         } catch (err) {
           console.error("Error al subir foto:", err);
         }
       }
 
-      // SE MANTIENE EL CAMPO 'foto' SEGÚN TU TABLA DE SUPABASE
       const nuevoRegistro = {
         codSuministro: parseInt(document.getElementById('codSuministro').value),
         nombreUsuario: document.getElementById('nombreUsuario').value,
@@ -420,6 +421,30 @@
       }
     });
 
+    // Subida individual de foto desde la tabla para Operativos
+    async function subirFotoFila(idRegistro, codSuministro, inputElement) {
+      if (!inputElement.files.length) return;
+      const btnLabel = inputElement.previousElementSibling;
+      btnLabel.textContent = "Subiendo...";
+      
+      try {
+        const file = inputElement.files[0];
+        const urlDrive = await subirFotoDrive(file, codSuministro);
+
+        if (urlDrive) {
+          await db.from('registros').update({ foto: urlDrive }).eq('id', idRegistro);
+          await cargarRegistrosSupabase();
+        } else {
+          alert("Error al subir la imagen a Drive.");
+          btnLabel.textContent = "📷 Subir Foto";
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error de conexión al guardar imagen.");
+        btnLabel.textContent = "📷 Subir Foto";
+      }
+    }
+
     async function cargarRegistrosSupabase() {
       const filtro = document.getElementById('filtroEstado').value;
       let query = db.from('registros').select('*');
@@ -430,7 +455,7 @@
 
       const esOperativo = usuarioActual && ['operativo', 'operador', 'tecnico', 'técnico'].includes(usuarioActual.rol.toLowerCase());
 
-      // Si es operativo/técnico, filtra SOLO los registros asignados a su DNI
+      // RESTRICCIÓN: Operativos solo reciben datos filtrados por su DNI
       if (esOperativo) {
         query = query.eq('dniResponsable', String(usuarioActual.dni));
       }
@@ -461,9 +486,23 @@
         const resp = listaResponsables.find(r => String(r.dni) === String(item.dniResponsable));
         const respNombre = resp ? resp.nombre : item.dniResponsable;
         const urlImagen = item.foto || item.foto_url;
-        const enlaceFoto = urlImagen 
-          ? `<a href="${urlImagen}" target="_blank" class="text-cyan-400 underline font-medium">Ver Foto</a>`
-          : `<span class="text-slate-500">Sin foto</span>`;
+
+        // Visualización / Botón de subida de foto según estado
+        let celdaFoto = '';
+        if (urlImagen) {
+          celdaFoto = `<div class="flex flex-col items-center gap-1">
+            <a href="${urlImagen}" target="_blank" class="text-cyan-400 underline font-medium">Ver Foto</a>
+            <label class="cursor-pointer text-[10px] text-slate-400 hover:text-white underline">
+              <span>Cambiar</span>
+              <input type="file" accept="image/*" class="hidden" onchange="subirFotoFila(${item.id}, ${item.codSuministro}, this)">
+            </label>
+          </div>`;
+        } else {
+          celdaFoto = `<label class="cursor-pointer bg-slate-700 hover:bg-slate-600 text-cyan-300 px-2 py-1 rounded text-[10px] font-semibold transition inline-block">
+            <span>📷 Subir Foto</span>
+            <input type="file" accept="image/*" class="hidden" onchange="subirFotoFila(${item.id}, ${item.codSuministro}, this)">
+          </label>`;
+        }
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-700/30 transition";
@@ -476,7 +515,7 @@
           <td class="p-3">Sector ${item.sector}</td>
           <td class="p-3">${item.motivoCambio}</td>
           <td class="p-3 text-[11px] font-medium text-slate-200">${respNombre}</td>
-          <td class="p-3 text-center text-[11px]">${enlaceFoto}</td>
+          <td class="p-3 text-center text-[11px]">${celdaFoto}</td>
           <td class="p-3 text-center">
             <span class="px-2 py-1 rounded-full text-[10px] font-bold ${
               item.estado === 'Pendiente' ? 'bg-amber-900/60 text-amber-300 border border-amber-700' :
