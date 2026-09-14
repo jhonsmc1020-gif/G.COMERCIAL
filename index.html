@@ -447,7 +447,7 @@
       });
     }
 
-    async function subirFotoDrive(file, codSuministro) {
+    async function subirFotoDrive(file, codSuministro, sector) {
       const base64Str = await convertFileToBase64(file);
       const fileName = `Tapa_${codSuministro}_${Date.now()}_${file.name}`;
 
@@ -457,7 +457,8 @@
         body: JSON.stringify({
           base64: base64Str,
           fileName: fileName,
-          mimeType: file.type
+          mimeType: file.type,
+          sector: sector || null
         })
       });
 
@@ -485,8 +486,9 @@
       if (fotoInput.files.length > 0) {
         try {
           const codSum = document.getElementById('codSuministro').value;
+          const sectorVal = document.getElementById('sector').value;
           const archivosASubir = Array.from(fotoInput.files).slice(0, 2);
-          const urls = await Promise.all(archivosASubir.map(f => subirFotoDrive(f, codSum)));
+          const urls = await Promise.all(archivosASubir.map(f => subirFotoDrive(f, codSum, sectorVal)));
           archivo1Url = urls[0] || null;
           archivo2Url = urls[1] || null;
         } catch (err) {
@@ -532,10 +534,12 @@
       
       try {
         const file = inputElement.files[0];
-        const urlDrive = await subirFotoDrive(file, codSuministro);
+        // El sector se busca en cacheRegistros (ya lo tenemos en memoria, no hace
+        // falta pedirlo) para poder organizar la foto en la subcarpeta correcta.
+        const item = cacheRegistros.find(r => r.id === idRegistro);
+        const urlDrive = await subirFotoDrive(file, codSuministro, item ? item.sector : null);
 
         if (urlDrive) {
-          const item = cacheRegistros.find(r => r.id === idRegistro);
           const cambios = { [campo]: urlDrive, estado: 'Instalado' };
           if (item && !item.fechaEjecucion) {
             cambios.fechaEjecucion = new Date().toISOString().split('T')[0];
