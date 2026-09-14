@@ -292,8 +292,11 @@
           document.getElementById('tituloTabla').textContent = '📋 Listado General de Órdenes';
         }
 
-        if (!esOperativo) initChart();
-
+        // IMPORTANTE: cargar los registros va SIEMPRE primero y sin depender del gráfico.
+        // Antes, si Chart.js no llegaba a descargarse del CDN (bloqueado por un adblocker,
+        // red corporativa, o simplemente caído), initChart() lanzaba un error sin capturar
+        // que detenía TODA la función validarDNI() ahí mismo — y el listado general nunca
+        // llegaba a pedirse. Por eso se veía "no carga" en vez de "carga lento".
         await Promise.all([
           cargarResponsables(),
           cargarRegistrosSupabase()
@@ -303,6 +306,21 @@
         // que se haya pintado con el DNI crudo si cargarRegistrosSupabase terminó
         // antes que cargarResponsables.
         renderTablaDesdeCache();
+
+        // El gráfico se intenta DESPUÉS, envuelto en try/catch: si Chart.js no cargó
+        // (CDN caído, bloqueado, etc.) solo se pierde el gráfico, nunca el listado.
+        if (!esOperativo) {
+          try {
+            initChart();
+            actualizarGraficoCargaVsInstalado();
+          } catch (err) {
+            console.error('No se pudo inicializar el gráfico (Chart.js no disponible):', err);
+            const chartContainerEl = document.getElementById('chartContainer');
+            if (chartContainerEl) {
+              chartContainerEl.innerHTML = '<p class="text-xs text-amber-400 p-4">⚠️ No se pudo cargar el gráfico (falló la librería Chart.js). El listado de órdenes funciona con normalidad.</p>';
+            }
+          }
+        }
 
         iniciarActualizacionEnVivo();
       } else {
