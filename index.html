@@ -176,11 +176,21 @@
         </div>
 
         <!-- DASHBOARD GRAFICO -->
-        <div id="chartContainer" class="lg:col-span-2 bg-slate-800 rounded-xl p-5 border border-slate-700 text-white flex flex-col justify-between">
-          <h2 class="text-md font-bold text-slate-100 border-b border-slate-700 pb-2">
-            📊 Carga Emitida vs. Instalado (por responsable)
-          </h2>
-          <div class="relative h-64 w-full mt-4 flex items-center justify-center">
+        <div id="chartContainer" class="lg:col-span-2 bg-slate-800 rounded-xl p-5 border border-slate-700 text-white flex flex-col">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-700 pb-2">
+            <h2 class="text-md font-bold text-slate-100">
+              📊 Carga Emitida vs. Instalado (por responsable)
+            </h2>
+            <div class="flex flex-wrap gap-2 items-center">
+              <select id="filtroMesGrafico" onchange="actualizarGraficoCargaVsInstalado()" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 px-3 py-1.5 rounded-lg">
+                <option value="TODOS">Todos los meses</option>
+              </select>
+              <button onclick="descargarReporteEjecutados()" class="text-xs bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded-lg text-white font-medium transition whitespace-nowrap">
+                ⬇️ Descargar reporte
+              </button>
+            </div>
+          </div>
+          <div class="relative h-80 w-full mt-4">
             <canvas id="estadoChart"></canvas>
           </div>
         </div>
@@ -732,6 +742,7 @@
       document.getElementById('kpiProceso').textContent = proc;
       document.getElementById('kpiInstalados').textContent = inst;
 
+      poblarFiltroMeses();
       actualizarGraficoCargaVsInstalado();
     }
 
@@ -754,14 +765,18 @@
         data: {
           labels: [],
           datasets: [
-            { label: 'Asignadas (emitido)', data: [], backgroundColor: '#38bdf8' },
-            { label: 'Instaladas (realizado)', data: [], backgroundColor: '#10b981' }
+            { label: 'Asignadas (emitido)', data: [], backgroundColor: '#38bdf8', borderRadius: 4, maxBarThickness: 48 },
+            { label: 'Instaladas (realizado)', data: [], backgroundColor: '#10b981', borderRadius: 4, maxBarThickness: 48 }
           ]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { display: true, labels: { color: '#cbd5e1' } } },
+          layout: { padding: { top: 8 } },
+          plugins: {
+            legend: { display: true, labels: { color: '#cbd5e1' } },
+            tooltip: { backgroundColor: '#0f172a', titleColor: '#f1f5f9', bodyColor: '#cbd5e1' }
+          },
           scales: {
             y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: '#334155' } },
             x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
@@ -770,8 +785,59 @@
       });
     }
 
+    // Devuelve "YYYY-MM" a partir de una fecha string tipo "YYYY-MM-DD", o null
+    // si no hay fecha. Se usa tanto para el filtro del gráfico como para el reporte.
+    function obtenerAnioMes(fechaStr) {
+      if (!fechaStr) return null;
+      return fechaStr.slice(0, 7); // "2026-09-14" -> "2026-09"
+    }
+
+    // Arma el texto legible "Septiembre 2026" a partir de "2026-09"
+    function etiquetaMes(anioMes) {
+      const [anio, mes] = anioMes.split('-').map(Number);
+      const fecha = new Date(anio, mes - 1, 1);
+      const texto = fecha.toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
+      return texto.charAt(0).toUpperCase() + texto.slice(1);
+    }
+
+    // Recorre cacheRegistros y arma la lista de meses disponibles (a partir de
+    // fechaSolicitud y fechaEjecucion), para llenar el selector del gráfico.
+    // Mantiene la selección actual del usuario si ese mes sigue existiendo.
+    function poblarFiltroMeses() {
+      const select = document.getElementById('filtroMesGrafico');
+      if (!select) return;
+
+      const valorPrevio = select.value || 'TODOS';
+      const mesesSet = new Set();
+
+      cacheRegistros.forEach(item => {
+        const mSolicitud = obtenerAnioMes(item.fechaSolicitud);
+        const mEjecucion = obtenerAnioMes(item.fechaEjecucion);
+        if (mSolicitud) mesesSet.add(mSolicitud);
+        if (mEjecucion) mesesSet.add(mEjecucion);
+      });
+
+      const mesesOrdenados = Array.from(mesesSet).sort().reverse(); // más reciente primero
+
+      select.innerHTML = '<option value="TODOS">Todos los meses</option>' +
+        mesesOrdenados.map(m => `<option value="${m}">${etiquetaMes(m)}</option>`).join('');
+
+      // Si el mes que tenía seleccionado el usuario todavía existe en la lista, lo mantiene
+      if (mesesOrdenados.includes(valorPrevio) || valorPrevio === 'TODOS') {
+        select.value = valorPrevio;
+      }
+    }
+
+    // Gráfico de barras: compara, por responsable, cuánto se le asignó vs. cuánto
+    // instaló. Si hay un mes seleccionado en el filtro, "asignadas" cuenta las
+    // órdenes cuya fechaSolicitud cae en ese mes, e "instaladas" cuenta las que
+    // tienen fechaEjecucion en ese mismo mes — así el gráfico responde la pregunta
+    // "¿cuánto ejecutó cada personal en tal mes?" en vez de mostrar el acumulado histórico.
     function actualizarGraficoCargaVsInstalado() {
       if (!chartInstance) return;
+
+      const selectMes = document.getElementById('filtroMesGrafico');
+      const mesFiltro = selectMes ? selectMes.value : 'TODOS';
 
       const porResponsable = {};
       listaResponsables.forEach(r => {
@@ -783,16 +849,71 @@
         if (!porResponsable[key]) {
           porResponsable[key] = { nombre: key, asignadas: 0, instaladas: 0 };
         }
-        porResponsable[key].asignadas++;
-        if (item.estado === 'Instalado') porResponsable[key].instaladas++;
+
+        const coincideAsignacion = mesFiltro === 'TODOS' || obtenerAnioMes(item.fechaSolicitud) === mesFiltro;
+        if (coincideAsignacion) porResponsable[key].asignadas++;
+
+        const coincideEjecucion = item.estado === 'Instalado' &&
+          (mesFiltro === 'TODOS' || obtenerAnioMes(item.fechaEjecucion) === mesFiltro);
+        if (coincideEjecucion) porResponsable[key].instaladas++;
       });
 
-      const entradas = Object.values(porResponsable).filter(p => p.asignadas > 0);
+      const entradas = Object.values(porResponsable).filter(p => p.asignadas > 0 || p.instaladas > 0);
 
       chartInstance.data.labels = entradas.map(p => p.nombre);
       chartInstance.data.datasets[0].data = entradas.map(p => p.asignadas);
       chartInstance.data.datasets[1].data = entradas.map(p => p.instaladas);
       chartInstance.update();
+    }
+
+    // Descarga un CSV (se abre bien en Excel) con el detalle de órdenes INSTALADAS
+    // en el mes seleccionado en el filtro del gráfico (o todas, si dice "Todos los meses").
+    function descargarReporteEjecutados() {
+      const selectMes = document.getElementById('filtroMesGrafico');
+      const mesFiltro = selectMes ? selectMes.value : 'TODOS';
+
+      const filas = cacheRegistros.filter(item =>
+        item.estado === 'Instalado' &&
+        (mesFiltro === 'TODOS' || obtenerAnioMes(item.fechaEjecucion) === mesFiltro)
+      );
+
+      if (filas.length === 0) {
+        alert('No hay órdenes instaladas para el período seleccionado.');
+        return;
+      }
+
+      const escaparCSV = (valor) => {
+        if (valor === null || valor === undefined) return '';
+        const texto = String(valor);
+        return /[",\n]/.test(texto) ? '"' + texto.replace(/"/g, '""') + '"' : texto;
+      };
+
+      const encabezados = ['Responsable', 'Cod. Suministro', 'Usuario', 'Domicilio', 'Sector', 'Motivo', 'Fecha Solicitud', 'Fecha Ejecución'];
+
+      const filasCSV = filas
+        .slice()
+        .sort((a, b) => (a.fechaEjecucion || '').localeCompare(b.fechaEjecucion || ''))
+        .map(item => {
+          const resp = listaResponsables.find(r => String(r.dni).trim() === String(item.dniResponsable).trim());
+          const respNombre = resp ? resp.nombre : item.dniResponsable;
+          return [
+            respNombre, item.codSuministro, item.nombreUsuario, item.domicilio,
+            item.sector, item.motivoCambio, item.fechaSolicitud || '', item.fechaEjecucion || ''
+          ].map(escaparCSV).join(',');
+        });
+
+      const csv = '\uFEFF' + [encabezados.join(','), ...filasCSV].join('\n'); // \uFEFF: para que Excel detecte bien los acentos (UTF-8 BOM)
+
+      const nombreArchivo = `reporte_ejecutados_${mesFiltro === 'TODOS' ? 'todos' : mesFiltro}.csv`;
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = nombreArchivo;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
 
     function iniciarActualizacionEnVivo() {
