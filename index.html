@@ -142,6 +142,27 @@
     let usuarioActual = { dni: '', nombre: '', rol: '' };
     let listaResponsables = [];
 
+    // Hace fetch con reintento automático: si falla (red inestable o
+    // "cold start" de Apps Script), reintenta hasta 2 veces antes de
+    // mostrarle un error al usuario. Silencioso: el usuario no nota nada
+    // salvo que tarde un poco más en los casos raros de fallo.
+    async function fetchJsonConReintento(url, options, maxIntentos = 3) {
+      let ultimoError;
+      for (let intento = 1; intento <= maxIntentos; intento++) {
+        try {
+          const res = await fetch(url, options);
+          const data = await res.json();
+          return data;
+        } catch (err) {
+          ultimoError = err;
+          if (intento < maxIntentos) {
+            await new Promise(r => setTimeout(r, 800 * intento)); // espera creciente
+          }
+        }
+      }
+      throw ultimoError;
+    }
+
     async function login(e) {
       if (e) e.preventDefault();
 
@@ -155,7 +176,7 @@
       btn.disabled = true;
 
       try {
-        const res = await fetch(`${API_URL}?dni=${encodeURIComponent(dni)}`).then(r => r.json());
+        const res = await fetchJsonConReintento(`${API_URL}?dni=${encodeURIComponent(dni)}`);
 
         if (!res.ok) {
           alert(res.mensaje || 'DNI no autorizado.');
@@ -202,10 +223,10 @@
       btn.disabled = true;
 
       try {
-        const res = await fetch(API_URL, {
+        const res = await fetchJsonConReintento(API_URL, {
           method: 'POST',
           body: JSON.stringify({ dni: usuarioActual.dni, accion: 'buscarSuministro', codSuministro: cod })
-        }).then(r => r.json());
+        });
 
         if (!res.ok) return alert(res.mensaje);
 
@@ -242,7 +263,7 @@
       };
 
       try {
-        const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json());
+        const res = await fetchJsonConReintento(API_URL, { method: 'POST', body: JSON.stringify(payload) });
         alert(res.mensaje);
         if (res.ok) {
           document.getElementById('regCodSuministro').value = '';
@@ -508,7 +529,7 @@
       };
 
       try {
-        const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) }).then(r => r.json());
+        const res = await fetchJsonConReintento(API_URL, { method: 'POST', body: JSON.stringify(payload) });
         alert(res.mensaje);
         if (res.ok) login();
       } catch (err) {
