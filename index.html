@@ -183,6 +183,7 @@
               <label class="block text-xs font-medium text-[#C2DCE3] mb-1">Adjuntar Foto(s) o Documento(s) — máx. 2 (Google Drive)</label>
               <input type="file" id="fotoInput" accept="image/*,.pdf,.doc,.docx" multiple class="w-full text-xs text-[#C2DCE3] bg-[#0E2A38]/80 border border-[#2E5364] rounded-lg p-1.5 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-[#148198] file:text-white hover:file:bg-[#1B9DB3]">
               <p id="fotoInputAviso" class="hidden text-[10px] text-amber-400 mt-1">Solo se subirán los primeros 2 archivos seleccionados.</p>
+              <p id="fotoInputError" class="hidden text-[10px] text-red-400 mt-1"></p>
             </div>
 
             <div>
@@ -267,6 +268,7 @@
     const SUPABASE_URL = 'https://utiqpzprvjuetcmmtouf.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_zPmCLXrSPTJUsrludHTdng_Lddn-Hym';
     const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx0yR0csqgwDiB0iQgOB8hI_UDmW-UN4TISiRFCyib2o0m0s6CGbZb1AXrR7P0-odsuKw/exec';
+    const SUBIDA_TOKEN = 'PON_AQUI_EL_MISMO_SECRETO_QUE_PUSISTE_EN_SUBIDA_TOKEN'; // debe coincidir con la propiedad SUBIDA_TOKEN del Apps Script
 
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -504,8 +506,43 @@
       inputBusqueda.value = '';
     }
 
+    // Debe coincidir con TAMANO_MAXIMO_BYTES y EXTENSION_A_MIME del Apps Script
+    // (esta validación es solo para avisar rápido al usuario; la que de verdad
+    // protege es la del servidor, porque esta se puede saltar fácilmente).
+    const TAMANO_MAXIMO_BYTES_CLIENTE = 15 * 1024 * 1024; // 15 MB
+    const EXTENSIONES_PERMITIDAS = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'pdf', 'doc', 'docx'];
+
+    function obtenerExtension(nombreArchivo) {
+      const partes = nombreArchivo.split('.');
+      return partes.length > 1 ? partes.pop().toLowerCase() : '';
+    }
+
     document.getElementById('fotoInput').addEventListener('change', function() {
       document.getElementById('fotoInputAviso').classList.toggle('hidden', this.files.length <= 2);
+
+      const errorBox = document.getElementById('fotoInputError');
+      const archivosAValidar = Array.from(this.files).slice(0, 2); // los mismos que realmente se subirán
+
+      const problemas = [];
+      archivosAValidar.forEach(file => {
+        const ext = obtenerExtension(file.name);
+        if (!EXTENSIONES_PERMITIDAS.includes(ext)) {
+          problemas.push(`"${file.name}": tipo no permitido (solo imágenes, PDF o Word).`);
+        } else if (file.size > TAMANO_MAXIMO_BYTES_CLIENTE) {
+          const tamanoMB = (file.size / (1024 * 1024)).toFixed(1);
+          problemas.push(`"${file.name}": pesa ${tamanoMB} MB, el máximo es 15 MB.`);
+        }
+      });
+
+      if (problemas.length > 0) {
+        errorBox.innerHTML = problemas.join('<br>');
+        errorBox.classList.remove('hidden');
+        this.dataset.archivosInvalidos = 'true';
+      } else {
+        errorBox.classList.add('hidden');
+        errorBox.textContent = '';
+        delete this.dataset.archivosInvalidos;
+      }
     });
 
     function convertFileToBase64(file) {
@@ -525,6 +562,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
+          token: SUBIDA_TOKEN,
           base64: base64Str,
           fileName: fileName,
           mimeType: file.type,
@@ -533,7 +571,11 @@
       });
 
       const resData = await res.json();
-      return resData.status === 'success' ? resData.url : null;
+      if (resData.status !== 'success') {
+        console.error('Error al subir a Drive:', resData.message);
+        return null;
+      }
+      return resData.url;
     }
 
     document.getElementById('registroForm').addEventListener('submit', async function(e) {
@@ -545,13 +587,18 @@
         return;
       }
 
+      const fotoInput = document.getElementById('fotoInput');
+      if (fotoInput.dataset.archivosInvalidos === 'true') {
+        alert('Revisa los archivos adjuntos: hay uno o más que no cumplen el tipo o tamaño permitido (máx. 15 MB, imágenes/PDF/Word).');
+        return;
+      }
+
       const btnGuardar = document.getElementById('btnGuardar');
       btnGuardar.disabled = true;
       btnGuardar.textContent = "Procesando...";
 
       let archivo1Url = null;
       let archivo2Url = null;
-      const fotoInput = document.getElementById('fotoInput');
 
       if (fotoInput.files.length > 0) {
         try {
@@ -590,6 +637,8 @@
         this.reset();
         document.getElementById('dniResponsableSelect').selectedIndex = 0;
         document.getElementById('fotoInputAviso').classList.add('hidden');
+        document.getElementById('fotoInputError').classList.add('hidden');
+        delete fotoInput.dataset.archivosInvalidos;
         await cargarRegistrosSupabase();
       } else {
         alert("Error al registrar en Supabase: " + error.message);
