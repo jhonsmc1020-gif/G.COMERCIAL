@@ -663,7 +663,21 @@
           if (item && !item.fechaEjecucion) {
             cambios.fechaEjecucion = new Date().toISOString().split('T')[0];
           }
-          await db.from('registros').update(cambios).eq('id', idRegistro);
+
+          // OJO: el archivo ya quedó subido a Drive en este punto. Si esta
+          // actualización falla (ej. falta una política RLS de UPDATE para
+          // la key anónima en la tabla "registros"), el archivo existe en
+          // Drive pero nunca queda enlazado a la orden — por eso es clave
+          // revisar el error aquí y avisar, en vez de asumir que salió bien.
+          const { error } = await db.from('registros').update(cambios).eq('id', idRegistro);
+
+          if (error) {
+            console.error('El archivo se subió a Drive pero falló al guardar en Supabase:', error.message);
+            alert('El archivo se subió a Drive correctamente, pero no se pudo guardar el enlace en la base de datos: ' + error.message + '\n\nURL del archivo (guárdala por si acaso): ' + urlDrive);
+            btnLabel.textContent = textoOriginal;
+            return;
+          }
+
           await cargarRegistrosSupabase();
         } else {
           alert("Error al subir el archivo a Drive.");
@@ -679,7 +693,12 @@
     async function reasignarResponsable(idRegistro, nuevoDni) {
       const dni = String(nuevoDni || '').trim();
       if (!dni) return;
-      await db.from('registros').update({ dniResponsable: dni }).eq('id', idRegistro);
+      const { error } = await db.from('registros').update({ dniResponsable: dni }).eq('id', idRegistro);
+      if (error) {
+        console.error('Error al reasignar responsable:', error.message);
+        alert('No se pudo reasignar el responsable: ' + error.message);
+        return;
+      }
       await cargarRegistrosSupabase();
     }
 
@@ -863,7 +882,12 @@
         cambios.fechaEjecucion = new Date().toISOString().split('T')[0];
       }
 
-      await db.from('registros').update(cambios).eq('id', id);
+      const { error } = await db.from('registros').update(cambios).eq('id', id);
+      if (error) {
+        console.error('Error al cambiar el estado:', error.message);
+        alert('No se pudo actualizar el estado: ' + error.message);
+        return;
+      }
       await cargarRegistrosSupabase();
     }
 
